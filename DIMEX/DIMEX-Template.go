@@ -163,14 +163,26 @@ func (module *DIMEX_Module) handleUponReqEntry() {
 	module.st = wantMX
 }
 
+/*
+upon event [ dmx, Exit  |  r  ]  do
+
+	para todo [p, r, ts ] em waiting
+		trigger [ pl, Send | p , [ respOk, r ]  ]
+	estado := naoQueroSC
+	waiting := {}
+*/
 func (module *DIMEX_Module) handleUponReqExit() {
-	/*
-						upon event [ dmx, Exit  |  r  ]  do
-		       				para todo [p, r, ts ] em waiting
-		          				trigger [ pl, Send | p , [ respOk, r ]  ]
-		    				estado := naoQueroSC
-							waiting := {}
-	*/
+	for i := 0; i < len(module.waiting); i++ {
+		if module.waiting[i] && i != module.id {
+			module.sendToLink(
+				module.addresses[i],
+				RESP_OK,
+				fmt.Sprintf("PID %d", module.id),
+			)
+		}
+	}
+	module.st = noMX
+	module.waiting = make([]bool, len(module.addresses))
 }
 
 // ------------------------------------------------------------------------------------
