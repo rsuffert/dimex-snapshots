@@ -155,7 +155,7 @@ func (module *DIMEX_Module) handleUponReqEntry() {
 		if i != module.id {
 			module.sendToLink(
 				module.addresses[i],
-				REQ_ENTRY,
+				fmt.Sprintf("%s;%d;%d", REQ_ENTRY, module.id, module.reqTs),
 				fmt.Sprintf("PID %d", module.id),
 			)
 		}
@@ -176,7 +176,7 @@ func (module *DIMEX_Module) handleUponReqExit() {
 		if module.waiting[i] && i != module.id {
 			module.sendToLink(
 				module.addresses[i],
-				RESP_OK,
+				fmt.Sprintf("%s;%d", RESP_OK, module.id),
 				fmt.Sprintf("PID %d", module.id),
 			)
 		}
