@@ -191,15 +191,20 @@ func (module *DIMEX_Module) handleUponReqExit() {
 // ------- UPON reqEntry
 // ------------------------------------------------------------------------------------
 
-func (module *DIMEX_Module) handleUponDeliverRespOk(msgOutro PP2PLink.PP2PLink_Ind_Message) {
-	/*
-						upon event [ pl, Deliver | p, [ respOk, r ] ]
-		      				resps++
-		      				se resps = N
-		    				então trigger [ dmx, Deliver | free2Access ]
-		  					    estado := estouNaSC
+/*
+upon event [ pl, Deliver | p, [ respOk, r ] ]
 
-	*/
+	resps++
+	se resps = N
+	então trigger [ dmx, Deliver | free2Access ]
+		estado := estouNaSC
+*/
+func (module *DIMEX_Module) handleUponDeliverRespOk(msgOutro PP2PLink.PP2PLink_Ind_Message) {
+	module.nbrResps++
+	if module.nbrResps == len(module.addresses)-1 {
+		module.Ind <- dmxResp{}
+		module.st = inMX
+	}
 }
 
 func (module *DIMEX_Module) handleUponDeliverReqEntry(msgOutro PP2PLink.PP2PLink_Ind_Message) {
