@@ -29,6 +29,11 @@ import (
 // ------- principais tipos
 // ------------------------------------------------------------------------------------
 
+const (
+	REQ_ENTRY string = "reqEntry"
+	RESP_OK   string = "respOk"
+)
+
 type State int // enumeracao dos estados possiveis de um processo
 const (
 	noMX State = iota
@@ -112,11 +117,11 @@ func (module *DIMEX_Module) Start() {
 
 			case msgOutro := <-module.Pp2plink.Ind: // vindo de outro processo
 				//fmt.Printf("dimex recebe da rede: ", msgOutro)
-				if strings.Contains(msgOutro.Message, "respOK") {
+				if strings.Contains(msgOutro.Message, RESP_OK) {
 					module.outDbg("         <<<---- responde! " + msgOutro.Message)
 					module.handleUponDeliverRespOk(msgOutro) // ENTRADA DO ALGORITMO
 
-				} else if strings.Contains(msgOutro.Message, "reqEntry") {
+				} else if strings.Contains(msgOutro.Message, REQ_ENTRY) {
 					module.outDbg("          <<<---- pede??  " + msgOutro.Message)
 					module.handleUponDeliverReqEntry(msgOutro) // ENTRADA DO ALGORITMO
 
@@ -132,16 +137,30 @@ func (module *DIMEX_Module) Start() {
 // ------- UPON EXIT
 // ------------------------------------------------------------------------------------
 
+/*
+upon event [ dmx, Entry  |  r ]  do
+
+	lts.ts++
+	myTs := lts
+	resps := 0
+	para todo processo p
+		trigger [ pl , Send | [ reqEntry, r, myTs ]
+	estado := queroSC
+*/
 func (module *DIMEX_Module) handleUponReqEntry() {
-	/*
-					upon event [ dmx, Entry  |  r ]  do
-		    			lts.ts++
-		    			myTs := lts
-		    			resps := 0
-		    			para todo processo p
-							trigger [ pl , Send | [ reqEntry, r, myTs ]
-		    			estado := queroSC
-	*/
+	module.lcl++
+	module.reqTs = module.lcl
+	module.nbrResps = 0
+	for i := 0; i < len(module.addresses); i++ {
+		if i != module.id {
+			module.sendToLink(
+				module.addresses[i],
+				REQ_ENTRY,
+				fmt.Sprintf("PID %d", module.id),
+			)
+		}
+	}
+	module.st = wantMX
 }
 
 func (module *DIMEX_Module) handleUponReqExit() {
