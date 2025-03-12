@@ -230,7 +230,7 @@ func (module *DIMEX_Module) handleUponDeliverReqEntry(msgOutro PP2PLink.PP2PLink
 
 	module.lcl = max(thisReqTs, otherReqTs)
 
-	delayResponse := module.st == noMX || (module.st == wantMX && before(thisId, thisReqTs, otherId, otherReqTs))
+	delayResponse := module.st == inMX || (module.st == wantMX && before(thisId, thisReqTs, otherId, otherReqTs))
 	if delayResponse {
 		module.waiting[otherId] = true
 		return
