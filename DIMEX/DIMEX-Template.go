@@ -22,6 +22,7 @@ package DIMEX
 import (
 	PP2PLink "SD/PP2PLink"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -207,19 +208,39 @@ func (module *DIMEX_Module) handleUponDeliverRespOk(msgOutro PP2PLink.PP2PLink_I
 	}
 }
 
+/*
+upon event [ pl, Deliver | p, [ reqEntry, r, rts ]  do
+
+	se (estado == naoQueroSC)   OR
+			(estado == QueroSC AND  myTs >  ts)
+	então  trigger [ pl, Send | p , [ respOk, r ]  ]
+	senão
+		se (estado == estouNaSC) OR
+				(estado == QueroSC AND  myTs < ts)
+		então  postergados := postergados + [p, r ]
+		lts.ts := max(lts.ts, rts.ts)
+*/
 func (module *DIMEX_Module) handleUponDeliverReqEntry(msgOutro PP2PLink.PP2PLink_Ind_Message) {
-	// outro processo quer entrar na SC
-	/*
-						upon event [ pl, Deliver | p, [ reqEntry, r, rts ]  do
-		     				se (estado == naoQueroSC)   OR
-		        				 (estado == QueroSC AND  myTs >  ts)
-							então  trigger [ pl, Send | p , [ respOk, r ]  ]
-		 					senão
-		        				se (estado == estouNaSC) OR
-		           					 (estado == QueroSC AND  myTs < ts)
-		        				então  postergados := postergados + [p, r ]
-		     					lts.ts := max(lts.ts, rts.ts)
-	*/
+	parts := strings.Split(msgOutro.Message, ";")
+	otherId, _ := strconv.Atoi(parts[1])
+	otherReqTs, _ := strconv.Atoi(parts[2])
+
+	thisId := module.id
+	thisReqTs := module.reqTs
+
+	module.lcl = max(thisReqTs, otherReqTs)
+
+	delayResponse := module.st == noMX || (module.st == wantMX && before(thisId, thisReqTs, otherId, otherReqTs))
+	if delayResponse {
+		module.waiting[otherId] = true
+		return
+	}
+
+	module.sendToLink(
+		module.addresses[otherId],
+		fmt.Sprintf("%s;%d", RESP_OK, module.id),
+		fmt.Sprintf("PID %d", module.id),
+	)
 }
 
 // ------------------------------------------------------------------------------------
@@ -241,6 +262,13 @@ func before(oneId, oneTs, othId, othTs int) bool {
 	} else {
 		return oneId < othId
 	}
+}
+
+func max(one, oth int) int {
+	if one > oth {
+		return one
+	}
+	return oth
 }
 
 func (module *DIMEX_Module) outDbg(s string) {
