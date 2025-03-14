@@ -203,8 +203,8 @@ upon event [ pl, Deliver | p, [ respOk, r ] ]
 func (module *DIMEX_Module) handleUponDeliverRespOk(msgOutro PP2PLink.PP2PLink_Ind_Message) {
 	module.nbrResps++
 	if module.nbrResps == len(module.addresses)-1 {
-		module.Ind <- dmxResp{}
 		module.st = inMX
+		module.Ind <- dmxResp{}
 	}
 }
 
@@ -225,22 +225,17 @@ func (module *DIMEX_Module) handleUponDeliverReqEntry(msgOutro PP2PLink.PP2PLink
 	otherId, _ := strconv.Atoi(parts[1])
 	otherReqTs, _ := strconv.Atoi(parts[2])
 
-	thisId := module.id
-	thisReqTs := module.reqTs
-
-	module.lcl = max(thisReqTs, otherReqTs)
-
-	delayResponse := module.st == inMX || (module.st == wantMX && before(thisId, thisReqTs, otherId, otherReqTs))
-	if delayResponse {
+	if module.st == noMX || (module.st == wantMX && after(module.reqTs, module.id, otherReqTs, otherId)) {
+		module.sendToLink(
+			module.addresses[otherId],
+			fmt.Sprintf("%s;%d", RESP_OK, module.id),
+			fmt.Sprintf("PID %d", module.id),
+		)
+	} else {
 		module.waiting[otherId] = true
-		return
 	}
 
-	module.sendToLink(
-		module.addresses[otherId],
-		fmt.Sprintf("%s;%d", RESP_OK, module.id),
-		fmt.Sprintf("PID %d", module.id),
-	)
+	module.lcl = max(module.lcl, otherReqTs)
 }
 
 // ------------------------------------------------------------------------------------
@@ -254,14 +249,8 @@ func (module *DIMEX_Module) sendToLink(address string, content string, space str
 		Message: content}
 }
 
-func before(oneId, oneTs, othId, othTs int) bool {
-	if oneTs < othTs {
-		return true
-	} else if oneTs > othTs {
-		return false
-	} else {
-		return oneId < othId
-	}
+func after(oneTs, oneId, otherTs, otherId int) bool {
+	return oneTs > otherTs || (oneTs == otherTs && oneId > otherId)
 }
 
 func max(one, oth int) int {
