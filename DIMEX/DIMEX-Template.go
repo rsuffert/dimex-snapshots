@@ -22,10 +22,11 @@ package DIMEX
 import (
 	PP2PLink "SD/PP2PLink"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 const snapshotIntervalSec int = 5
@@ -124,7 +125,7 @@ func (module *DIMEX_Module) Start() {
 
 			case msgOutro := <-module.Pp2plink.Ind: // vindo de outro processo
 				if strings.Contains(msgOutro.Message, SNAP) {
-					fmt.Printf("\tP%d: received SNAP from %s\n", module.id, msgOutro.From)
+					logrus.Debugf("\tP%d: received SNAP from %s\n", module.id, msgOutro.From)
 					module.outDbg("         <<<---- snap!")
 					module.handleIncomingSnap(msgOutro)
 				} else if strings.Contains(msgOutro.Message, RESP_OK) {
@@ -147,7 +148,7 @@ func (module *DIMEX_Module) Start() {
 		for t := range ticker.C {
 			turn := (t.Unix() / int64(snapshotIntervalSec)) % int64(len(module.addresses))
 			if int(turn) == module.id {
-				log.Printf("=========== P%d initiating a snapshot ===========\n", module.id)
+				logrus.Infof("=========== P%d initiating a snapshot ===========\n", module.id)
 				module.startSnapshot()
 			}
 		}

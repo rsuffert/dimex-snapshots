@@ -7,6 +7,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -53,18 +55,18 @@ func (m *DIMEX_Module) handleIncomingSnap(msg PP2PLink.PP2PLink_Ind_Message) {
 
 	snapInitiator := initiatorId == m.id
 	snapshotToBeTaken := (m.lastSnapshot == nil) || (snapId > m.lastSnapshot.ID)
-	fmt.Printf("\t\tP%d: init=%d, snapId=%d, snapInitiator=%t, snapshotToBeTaken=%t\n", m.id, initiatorId, snapId, snapInitiator, snapshotToBeTaken)
+	logrus.Debugf("\t\tP%d: init=%d, snapId=%d, snapInitiator=%t, snapshotToBeTaken=%t\n", m.id, initiatorId, snapId, snapInitiator, snapshotToBeTaken)
 	if !snapInitiator && snapshotToBeTaken {
-		fmt.Printf("\t\tP%d: taking snapshot\n", m.id)
+		logrus.Debugf("\t\tP%d: taking snapshot\n", m.id)
 		m.takeSnapshot(snapId, initiatorId)
 		m.lastSnapshot.collectedResps++
 		return
 	}
 
 	m.lastSnapshot.collectedResps++
-	fmt.Printf("\t\tP%d: collecing SNAP response (current=%d)\n", m.id, m.lastSnapshot.collectedResps)
+	logrus.Debugf("\t\tP%d: collecing SNAP response (current=%d)\n", m.id, m.lastSnapshot.collectedResps)
 	if m.lastSnapshot.collectedResps == (len(m.addresses) - 1) {
-		fmt.Printf("\t\tP%d: snapshot is over! Dumping to file...\n", m.id)
+		logrus.Debugf("\t\tP%d: snapshot is over! Dumping to file...\n", m.id)
 		m.lastSnapshot.DumpToFile(fmt.Sprintf("snaps-pid-%d.txt", m.id))
 	}
 }
@@ -97,7 +99,7 @@ func (m *DIMEX_Module) takeSnapshot(snapId, initiatorId int) {
 				fmt.Sprintf("%s;%d;%d", SNAP, initiatorId, snapId),
 				fmt.Sprintf("PID %d", m.id),
 			)
-			fmt.Printf("P%d: sent SNAP to %s\n", m.id, addr)
+			logrus.Debugf("P%d: sent SNAP to %s\n", m.id, addr)
 		}
 	}
 }
