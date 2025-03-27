@@ -22,9 +22,13 @@ package DIMEX
 import (
 	PP2PLink "SD/PP2PLink"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
+	"time"
 )
+
+const snapshotIntervalSec int = 5
 
 // ------------------------------------------------------------------------------------
 // ------- principais tipos
@@ -119,8 +123,11 @@ func (module *DIMEX_Module) Start() {
 				}
 
 			case msgOutro := <-module.Pp2plink.Ind: // vindo de outro processo
-				//fmt.Printf("dimex recebe da rede: ", msgOutro)
-				if strings.Contains(msgOutro.Message, RESP_OK) {
+				if strings.Contains(msgOutro.Message, SNAP) {
+					fmt.Printf("\tP%d: received SNAP from %s\n", module.id, msgOutro.From)
+					module.outDbg("         <<<---- snap!")
+					module.handleIncomingSnap(msgOutro)
+				} else if strings.Contains(msgOutro.Message, RESP_OK) {
 					module.outDbg("         <<<---- responde! " + msgOutro.Message)
 					module.handleUponDeliverRespOk(msgOutro) // ENTRADA DO ALGORITMO
 
@@ -129,6 +136,19 @@ func (module *DIMEX_Module) Start() {
 					module.handleUponDeliverReqEntry(msgOutro) // ENTRADA DO ALGORITMO
 
 				}
+			}
+		}
+	}()
+
+	// every snapshotIntervalSec seconds, a process raises a snapshot
+	go func() {
+		ticker := time.NewTicker(time.Duration(snapshotIntervalSec) * time.Second)
+		defer ticker.Stop()
+		for t := range ticker.C {
+			turn := (t.Unix() / int64(snapshotIntervalSec)) % int64(len(module.addresses))
+			if int(turn) == module.id {
+				log.Printf("=========== P%d initiating a snapshot ===========\n", module.id)
+				module.startSnapshot()
 			}
 		}
 	}()
