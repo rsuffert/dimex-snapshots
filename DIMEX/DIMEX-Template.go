@@ -65,6 +65,8 @@ type DIMEX_Module struct {
 	dbg       bool
 
 	Pp2plink *PP2PLink.PP2PLink // acesso aa comunicacao enviar por PP2PLinq.Req  e receber por PP2PLinq.Ind
+
+	lastSnapshot *snapshot
 }
 
 // ------------------------------------------------------------------------------------
