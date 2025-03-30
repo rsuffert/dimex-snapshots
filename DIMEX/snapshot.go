@@ -52,13 +52,12 @@ func (s *snapshot) DumpToFile() {
 
 func (m *DIMEX_Module) handleIncomingSnap(msg PP2PLink.PP2PLink_Ind_Message) {
 	parts := strings.Split(msg.Message, ";")
-	initiatorId, _ := strconv.Atoi(parts[1])
-	snapId, _ := strconv.Atoi(parts[2])
+	snapId, _ := strconv.Atoi(parts[1])
 
 	takeSnapshot := m.lastSnapshot == nil || m.lastSnapshot.ID < snapId
 	if takeSnapshot {
 		logrus.Debugf("\t\tP%d: taking snapshot %d\n", m.id, snapId)
-		m.takeSnapshot(snapId, initiatorId)
+		m.takeSnapshot(snapId)
 	}
 
 	m.lastSnapshot.collectedResps++
@@ -75,10 +74,10 @@ func (m *DIMEX_Module) startSnapshot() {
 	if m.lastSnapshot != nil {
 		snapId = m.lastSnapshot.ID + 1
 	}
-	m.takeSnapshot(snapId, m.id)
+	m.takeSnapshot(snapId)
 }
 
-func (m *DIMEX_Module) takeSnapshot(snapId, initiatorId int) {
+func (m *DIMEX_Module) takeSnapshot(snapId int) {
 	waiting := make([]bool, len(m.waiting))
 	copy(waiting, m.waiting)
 	m.lastSnapshot = &snapshot{
@@ -95,7 +94,7 @@ func (m *DIMEX_Module) takeSnapshot(snapId, initiatorId int) {
 		if i != m.id {
 			m.sendToLink(
 				addr,
-				fmt.Sprintf("%s;%d;%d", SNAP, initiatorId, snapId),
+				fmt.Sprintf("%s;%d", SNAP, snapId),
 				fmt.Sprintf("PID %d", m.id),
 			)
 			logrus.Debugf("P%d: sent SNAP to %s\n", m.id, addr)
