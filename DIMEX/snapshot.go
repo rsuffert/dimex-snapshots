@@ -35,7 +35,9 @@ func (s snapshot) String() string {
 	return string(bytes)
 }
 
-func (s *snapshot) DumpToFile(path string) {
+func (s *snapshot) DumpToFile() {
+	path := fmt.Sprintf("snapshots-pid-%d.txt", s.PID)
+
 	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		panic(fmt.Errorf("snapshot.dumpToFile: failed opening '%s' file: %w", path, err))
@@ -53,21 +55,18 @@ func (m *DIMEX_Module) handleIncomingSnap(msg PP2PLink.PP2PLink_Ind_Message) {
 	initiatorId, _ := strconv.Atoi(parts[1])
 	snapId, _ := strconv.Atoi(parts[2])
 
-	snapInitiator := initiatorId == m.id
-	snapshotToBeTaken := (m.lastSnapshot == nil) || (snapId > m.lastSnapshot.ID)
-	logrus.Debugf("\t\tP%d: init=%d, snapId=%d, snapInitiator=%t, snapshotToBeTaken=%t\n", m.id, initiatorId, snapId, snapInitiator, snapshotToBeTaken)
-	if !snapInitiator && snapshotToBeTaken {
-		logrus.Debugf("\t\tP%d: taking snapshot\n", m.id)
+	takeSnapshot := m.lastSnapshot == nil || m.lastSnapshot.ID < snapId
+	if takeSnapshot {
+		logrus.Debugf("\t\tP%d: taking snapshot %d\n", m.id, snapId)
 		m.takeSnapshot(snapId, initiatorId)
-		m.lastSnapshot.collectedResps++
-		return
 	}
 
 	m.lastSnapshot.collectedResps++
-	logrus.Debugf("\t\tP%d: collecing SNAP response (current=%d)\n", m.id, m.lastSnapshot.collectedResps)
-	if m.lastSnapshot.collectedResps == (len(m.addresses) - 1) {
-		logrus.Debugf("\t\tP%d: snapshot is over! Dumping to file...\n", m.id)
-		m.lastSnapshot.DumpToFile(fmt.Sprintf("snaps-pid-%d.txt", m.id))
+
+	snapshotOver := m.lastSnapshot.collectedResps == (len(m.addresses) - 1)
+	if snapshotOver {
+		logrus.Debugf("\t\tP%d: snapshot %d completed. Dumping to file...\n", m.id, snapId)
+		m.lastSnapshot.DumpToFile()
 	}
 }
 
