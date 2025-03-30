@@ -16,13 +16,14 @@ const (
 )
 
 type snapshot struct {
-	ID         int
-	PID        int
-	State      State
-	Waiting    []bool
-	LocalClock int
-	ReqTs      int
-	NbrResps   int
+	ID              int
+	PID             int
+	State           State
+	Waiting         []bool
+	LocalClock      int
+	ReqTs           int
+	NbrResps        int
+	InterceptedMsgs []PP2PLink.PP2PLink_Ind_Message
 
 	collectedResps int
 }
@@ -81,13 +82,14 @@ func (m *DIMEX_Module) takeSnapshot(snapId int) {
 	waiting := make([]bool, len(m.waiting))
 	copy(waiting, m.waiting)
 	m.lastSnapshot = &snapshot{
-		ID:         snapId,
-		PID:        m.id,
-		State:      m.st,
-		Waiting:    waiting,
-		LocalClock: m.lcl,
-		ReqTs:      m.reqTs,
-		NbrResps:   m.nbrResps,
+		ID:              snapId,
+		PID:             m.id,
+		State:           m.st,
+		Waiting:         waiting,
+		LocalClock:      m.lcl,
+		ReqTs:           m.reqTs,
+		NbrResps:        m.nbrResps,
+		InterceptedMsgs: make([]PP2PLink.PP2PLink_Ind_Message, 0),
 	}
 
 	for i, addr := range m.addresses {

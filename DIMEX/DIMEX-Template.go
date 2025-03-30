@@ -125,16 +125,21 @@ func (module *DIMEX_Module) Start() {
 
 			case msgOutro := <-module.Pp2plink.Ind: // vindo de outro processo
 				if strings.Contains(msgOutro.Message, SNAP) {
-					logrus.Debugf("\tP%d: received SNAP from %s\n", module.id, msgOutro.From)
 					module.outDbg("         <<<---- snap!")
-					module.handleIncomingSnap(msgOutro)
+					module.handleIncomingSnap(
+						module.messagesMiddleware(msgOutro),
+					)
 				} else if strings.Contains(msgOutro.Message, RESP_OK) {
 					module.outDbg("         <<<---- responde! " + msgOutro.Message)
-					module.handleUponDeliverRespOk(msgOutro) // ENTRADA DO ALGORITMO
+					module.handleUponDeliverRespOk(
+						module.messagesMiddleware(msgOutro),
+					)
 
 				} else if strings.Contains(msgOutro.Message, REQ_ENTRY) {
 					module.outDbg("          <<<---- pede??  " + msgOutro.Message)
-					module.handleUponDeliverReqEntry(msgOutro) // ENTRADA DO ALGORITMO
+					module.handleUponDeliverReqEntry(
+						module.messagesMiddleware(msgOutro),
+					)
 
 				}
 			}
@@ -287,4 +292,19 @@ func (module *DIMEX_Module) outDbg(s string) {
 	if module.dbg {
 		fmt.Println(". . . . . . . . . . . . [ DIMEX : " + s + " ]")
 	}
+}
+
+func (m *DIMEX_Module) messagesMiddleware(msg PP2PLink.PP2PLink_Ind_Message) PP2PLink.PP2PLink_Ind_Message {
+	if strings.Contains(msg.Message, SNAP) {
+		logrus.Debugf("\tP%d: received SNAP from %s\n", m.id, msg.From)
+		return msg
+	}
+
+	if m.lastSnapshot == nil {
+		return msg
+	}
+
+	m.lastSnapshot.InterceptedMsgs = append(m.lastSnapshot.InterceptedMsgs, msg)
+
+	return msg
 }
