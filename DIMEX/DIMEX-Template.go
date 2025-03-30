@@ -29,7 +29,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const snapshotIntervalSec int = 5
+const snapshotIntervalSec int = 1
 
 // ------------------------------------------------------------------------------------
 // ------- principais tipos
