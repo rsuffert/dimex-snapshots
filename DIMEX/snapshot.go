@@ -28,27 +28,25 @@ type snapshot struct {
 	collectedResps int
 }
 
-func (s snapshot) String() string {
-	bytes, err := json.Marshal(s)
-	if err != nil {
-		panic(fmt.Errorf("snapshot.String: failed marshalling snapshot: %w", err))
-	}
-	return string(bytes)
-}
-
-func (s *snapshot) DumpToFile() {
+func (s *snapshot) DumpToFile() error {
 	path := fmt.Sprintf("snapshots-pid-%d.txt", s.PID)
 
 	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		panic(fmt.Errorf("snapshot.dumpToFile: failed opening '%s' file: %w", path, err))
+		return fmt.Errorf("snapshot.dumpToFile: failed opening '%s' file: %w", path, err)
 	}
 	defer file.Close()
 
-	_, err = file.WriteString(s.String() + "\n")
+	snapshotJson, err := json.Marshal(s)
 	if err != nil {
-		panic(fmt.Errorf("snapshot.dumpToFile: failed writing to '%s' file: %w", path, err))
+		return fmt.Errorf("snapshot.dumpToFile: failed marshaling snapshot to JSON: %w", err)
 	}
+
+	if _, err = file.WriteString(string(snapshotJson) + "\n"); err != nil {
+		return fmt.Errorf("snapshot.dumpToFile: failed writing to '%s' file: %w", path, err)
+	}
+
+	return nil
 }
 
 func (m *DIMEX_Module) handleIncomingSnap(msg PP2PLink.PP2PLink_Ind_Message) {
@@ -66,7 +64,9 @@ func (m *DIMEX_Module) handleIncomingSnap(msg PP2PLink.PP2PLink_Ind_Message) {
 	snapshotOver := m.lastSnapshot.collectedResps == (len(m.addresses) - 1)
 	if snapshotOver {
 		logrus.Debugf("\t\tP%d: snapshot %d completed. Dumping to file...\n", m.id, snapId)
-		m.lastSnapshot.DumpToFile()
+		if err := m.lastSnapshot.DumpToFile(); err != nil {
+			logrus.Errorf("P%d: error dumping snapshot %d to file: %v\n", m.id, snapId, err)
+		}
 	}
 }
 
