@@ -156,7 +156,11 @@ func (module *DIMEX_Module) Start() {
 			turn := (t.Unix() / int64(snapshotIntervalSec)) % int64(len(module.addresses))
 			if int(turn) == module.id {
 				logrus.Infof("=========== P%d initiating a snapshot ===========\n", module.id)
-				module.startSnapshot()
+				snapId := 0
+				if module.lastSnapshot != nil {
+					snapId = module.lastSnapshot.ID + 1
+				}
+				module.takeSnapshot(snapId)
 			}
 		}
 	}()
@@ -315,14 +319,6 @@ func (module *DIMEX_Module) outDbg(s string) {
 	if module.dbg {
 		fmt.Println(". . . . . . . . . . . . [ DIMEX : " + s + " ]")
 	}
-}
-
-func (m *DIMEX_Module) startSnapshot() {
-	snapId := 0
-	if m.lastSnapshot != nil {
-		snapId = m.lastSnapshot.ID + 1
-	}
-	m.takeSnapshot(snapId)
 }
 
 func (m *DIMEX_Module) takeSnapshot(snapId int) {
