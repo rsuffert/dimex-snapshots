@@ -21,6 +21,7 @@ package DIMEX
 
 import (
 	PP2PLink "SD/PP2PLink"
+	"SD/snapshots"
 	"fmt"
 	"strconv"
 	"strings"
@@ -38,6 +39,7 @@ const snapshotIntervalSec int = 1
 const (
 	REQ_ENTRY string = "reqEntry"
 	RESP_OK   string = "respOk"
+	SNAP      string = "snap"
 )
 
 type State int // enumeracao dos estados possiveis de um processo
@@ -71,7 +73,7 @@ type DIMEX_Module struct {
 
 	Pp2plink *PP2PLink.PP2PLink // acesso aa comunicacao enviar por PP2PLinq.Req  e receber por PP2PLinq.Ind
 
-	lastSnapshot *snapshot
+	lastSnapshot *snapshots.Snapshot
 }
 
 // ------------------------------------------------------------------------------------
@@ -266,6 +268,27 @@ func (module *DIMEX_Module) handleUponDeliverReqEntry(msgOutro PP2PLink.PP2PLink
 	module.lcl = max(module.lcl, otherReqTs)
 }
 
+func (m *DIMEX_Module) handleIncomingSnap(msg PP2PLink.PP2PLink_Ind_Message) {
+	parts := strings.Split(msg.Message, ";")
+	snapId, _ := strconv.Atoi(parts[1])
+
+	takeSnapshot := m.lastSnapshot == nil || m.lastSnapshot.ID < snapId
+	if takeSnapshot {
+		logrus.Debugf("\t\tP%d: taking snapshot %d\n", m.id, snapId)
+		m.takeSnapshot(snapId)
+	}
+
+	m.lastSnapshot.CollectedResps++
+
+	snapshotOver := m.lastSnapshot.CollectedResps == (len(m.addresses) - 1)
+	if snapshotOver {
+		logrus.Debugf("\t\tP%d: snapshot %d completed. Dumping to file...\n", m.id, snapId)
+		if err := m.lastSnapshot.DumpToFile(); err != nil {
+			logrus.Errorf("P%d: error dumping snapshot %d to file: %v\n", m.id, snapId, err)
+		}
+	}
+}
+
 // ------------------------------------------------------------------------------------
 // ------- funcoes de ajuda
 // ------------------------------------------------------------------------------------
@@ -291,6 +314,40 @@ func max(one, oth int) int {
 func (module *DIMEX_Module) outDbg(s string) {
 	if module.dbg {
 		fmt.Println(". . . . . . . . . . . . [ DIMEX : " + s + " ]")
+	}
+}
+
+func (m *DIMEX_Module) startSnapshot() {
+	snapId := 0
+	if m.lastSnapshot != nil {
+		snapId = m.lastSnapshot.ID + 1
+	}
+	m.takeSnapshot(snapId)
+}
+
+func (m *DIMEX_Module) takeSnapshot(snapId int) {
+	waiting := make([]bool, len(m.waiting))
+	copy(waiting, m.waiting)
+	m.lastSnapshot = &snapshots.Snapshot{
+		ID:              snapId,
+		PID:             m.id,
+		State:           int(m.st),
+		Waiting:         waiting,
+		LocalClock:      m.lcl,
+		ReqTs:           m.reqTs,
+		NbrResps:        m.nbrResps,
+		InterceptedMsgs: make([]PP2PLink.PP2PLink_Ind_Message, 0),
+	}
+
+	for i, addr := range m.addresses {
+		if i != m.id {
+			m.sendToLink(
+				addr,
+				fmt.Sprintf("%s;%d", SNAP, snapId),
+				fmt.Sprintf("PID %d", m.id),
+			)
+			logrus.Debugf("P%d: sent SNAP to %s\n", m.id, addr)
+		}
 	}
 }
 
