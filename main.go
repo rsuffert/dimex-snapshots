@@ -2,18 +2,23 @@ package main
 
 import (
 	"SD/DIMEX"
+	"flag"
 	"fmt"
-	"log"
 	"os"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
-	if len(os.Args) < 3 {
-		log.Fatalf("Usage: %s <address:port> <address:port> [<address:port>...]", os.Args[0])
+	setLogger()
+
+	if len(flag.Args()) < 2 {
+		logrus.Errorf("Usage: %s [-v] <address:port> <address:port> [<address:port>...]", os.Args[0])
+		os.Exit(1)
 	}
 
-	addresses := os.Args[1:]
+	addresses := flag.Args()
 
 	for i := range addresses {
 		dmx := DIMEX.NewDIMEX(addresses, i, false)
@@ -62,4 +67,16 @@ func worker(dmx *DIMEX.DIMEX_Module) {
 		// release the DIMEX module
 		dmx.Req <- DIMEX.EXIT
 	}
+}
+
+func setLogger() {
+	verboseMode := flag.Bool("v", false, "Enable verbose (debug) logging for snapshots")
+	flag.Parse()
+
+	loggingLevel := logrus.InfoLevel
+	if *verboseMode {
+		loggingLevel = logrus.DebugLevel
+	}
+
+	logrus.SetLevel(loggingLevel)
 }
