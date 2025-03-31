@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -25,8 +27,7 @@ func main() {
 		go worker(dmx)
 	}
 
-	// wait forever
-	select {}
+	waitForEndSignal()
 }
 
 // worker simulates the flow of an application that uses the DIMEX module
@@ -79,4 +80,17 @@ func setLogger() {
 	}
 
 	logrus.SetLevel(loggingLevel)
+}
+
+func waitForEndSignal() {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	sig := <-sigChan // blocks until one of the signals above is received
+
+	logrus.Infof("Received signal: %s. Exiting...", sig)
+
+	// TODO: Add call for verifying the snapshot dumps here
+
+	logrus.Infof("Shutdown complete!")
 }
