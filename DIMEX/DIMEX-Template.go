@@ -21,6 +21,7 @@ package DIMEX
 
 import (
 	PP2PLink "SD/PP2PLink"
+	"SD/common"
 	"SD/snapshots"
 	"fmt"
 	"strconv"
@@ -42,13 +43,6 @@ const (
 	SNAP      string = "snap"
 )
 
-type State int // enumeracao dos estados possiveis de um processo
-const (
-	noMX State = iota
-	wantMX
-	inMX
-)
-
 type dmxReq int // enumeracao dos estados possiveis de um processo
 const (
 	ENTER dmxReq = iota
@@ -64,7 +58,7 @@ type DIMEX_Module struct {
 	Ind       chan dmxResp // canal para informar aplicacao que pode acessar
 	addresses []string     // endereco de todos, na mesma ordem
 	id        int          // identificador do processo - é o indice no array de enderecos acima
-	st        State        // estado deste processo na exclusao mutua distribuida
+	st        common.State // estado deste processo na exclusao mutua distribuida
 	waiting   []bool       // processos aguardando tem flag true
 	lcl       int          // relogio logico local
 	reqTs     int          // timestamp local da ultima requisicao deste processo
@@ -90,7 +84,7 @@ func NewDIMEX(_addresses []string, _id int, _dbg bool) *DIMEX_Module {
 
 		addresses: _addresses,
 		id:        _id,
-		st:        noMX,
+		st:        common.NoMX,
 		waiting:   make([]bool, len(_addresses)),
 		lcl:       0,
 		reqTs:     0,
@@ -195,7 +189,7 @@ func (module *DIMEX_Module) handleUponReqEntry() {
 			)
 		}
 	}
-	module.st = wantMX
+	module.st = common.WantMX
 }
 
 /*
@@ -216,7 +210,7 @@ func (module *DIMEX_Module) handleUponReqExit() {
 			)
 		}
 	}
-	module.st = noMX
+	module.st = common.NoMX
 	module.waiting = make([]bool, len(module.addresses))
 }
 
@@ -237,7 +231,7 @@ upon event [ pl, Deliver | p, [ respOk, r ] ]
 func (module *DIMEX_Module) handleUponDeliverRespOk(msgOutro PP2PLink.PP2PLink_Ind_Message) {
 	module.nbrResps++
 	if module.nbrResps == len(module.addresses)-1 {
-		module.st = inMX
+		module.st = common.InMX
 		module.Ind <- dmxResp{}
 	}
 }
@@ -259,7 +253,7 @@ func (module *DIMEX_Module) handleUponDeliverReqEntry(msgOutro PP2PLink.PP2PLink
 	otherId, _ := strconv.Atoi(parts[1])
 	otherReqTs, _ := strconv.Atoi(parts[2])
 
-	if module.st == noMX || (module.st == wantMX && after(module.reqTs, module.id, otherReqTs, otherId)) {
+	if module.st == common.NoMX || (module.st == common.WantMX && after(module.reqTs, module.id, otherReqTs, otherId)) {
 		module.sendToLink(
 			module.addresses[otherId],
 			fmt.Sprintf("%s;%d", RESP_OK, module.id),
