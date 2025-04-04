@@ -1,6 +1,7 @@
 package snapshots
 
 import (
+	"SD/common"
 	"bufio"
 	"encoding/json"
 	"fmt"
@@ -49,7 +50,40 @@ func parseDumpFile(filename string) ([]Snapshot, error) {
 }
 
 func (p *Parser) Verify() error {
-	// TODO: add logic for verifying the snapshots and
-	// returning an error if an inconsistency is detected
+	nSnapshots := len(p.snapshotsByPID[0])
+	for pid, snapshots := range p.snapshotsByPID {
+		if len(snapshots) != nSnapshots {
+			return fmt.Errorf("parser.Verify: process %d has %d snapshots, expected %d as the others", pid, len(snapshots), nSnapshots)
+		}
+	}
+
+	nProcesses := len(p.snapshotsByPID)
+	for snapId := 0; snapId < nSnapshots; snapId++ {
+		snapshots := make([]Snapshot, nProcesses)
+		for pid := 0; pid < nProcesses; pid++ {
+			snapshots = append(snapshots, p.snapshotsByPID[pid][snapId])
+		}
+
+		// TODO: Call functions for verifying the snapshots that are in the 'snapshots' list
+		if err := checkMutualExclusion(snapshots...); err != nil {
+			return fmt.Errorf("parser.Verify: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func checkMutualExclusion(snapshots ...Snapshot) error {
+	inCriticalSectionCount := 0
+	for _, snapshot := range snapshots {
+		if snapshot.State == int(common.InMX) {
+			inCriticalSectionCount++
+		}
+	}
+
+	if inCriticalSectionCount > 1 {
+		return fmt.Errorf("checkMutualExclusion: %d processes in critical section (more than 1)", inCriticalSectionCount)
+	}
+
 	return nil
 }

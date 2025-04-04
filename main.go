@@ -91,6 +91,8 @@ func terminate() {
 
 	logrus.Infof("Received signal: %s. Exiting...", sig)
 
+	logrus.Infof("Beginning to parse and verify snapshots...")
+
 	snapsParser, err := snapshots.NewParser()
 	if err != nil {
 		logrus.Errorf("Failed to parse snapshots: %v", err)
@@ -99,7 +101,7 @@ func terminate() {
 
 	if err := snapsParser.Verify(); err != nil {
 		logrus.Infof("Inconsistency detected in snapshots: %v", err)
+		os.Exit(1)
 	}
-
-	logrus.Infof("Shutdown complete!")
+	logrus.Infof("No inconsistencies detected in snapshots!")
 }
