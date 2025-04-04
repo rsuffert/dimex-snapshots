@@ -8,20 +8,20 @@ import (
 )
 
 type Parser struct {
-	snapshots map[string][]Snapshot
+	snapshotsByPID [][]Snapshot // [i][j] = j-th snapshot of i-th process
 }
 
 func NewParser() (*Parser, error) {
 	p := &Parser{
-		snapshots: make(map[string][]Snapshot),
+		snapshotsByPID: make([][]Snapshot, len(dumpFiles)),
 	}
 
-	for dumpFile := range dumpFiles {
+	for dumpFile, pid := range dumpFiles {
 		snapshots, err := parseDumpFile(dumpFile)
 		if err != nil {
 			return nil, fmt.Errorf("snapshots.NewParser parseDumpFile: %w", err)
 		}
-		p.snapshots[dumpFile] = snapshots
+		p.snapshotsByPID[pid] = snapshots
 	}
 
 	return p, nil
