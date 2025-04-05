@@ -61,19 +61,22 @@ func parseDumpFile(filename string) ([]Snapshot, error) {
 // invariants for the set. The subsequent sets will also not be verified. It returns nil
 // if ALL snapshots of ALL sets uphold ALL the invariants.
 func (p *Parser) Verify() error {
-	nSnapshots := len(p.snapshotsByPID[0])
-	for pid, snapshots := range p.snapshotsByPID {
-		if len(snapshots) != nSnapshots {
-			return fmt.Errorf("parser.Verify: process %d has %d snapshots, expected %d as the others", pid, len(snapshots), nSnapshots)
-		}
+	nSnapshots, err := p.getSnapshotsPerPIDCount()
+	if err != nil {
+		return fmt.Errorf("parser.Verify: %w", err)
 	}
 
 	nProcesses := len(p.snapshotsByPID)
+
+	// for each snapshot set (snapID)
 	for snapId := 0; snapId < nSnapshots; snapId++ {
+		// build the snapshot set with the snapId-th snapshot of each process
 		snapshots := make([]Snapshot, nProcesses)
 		for pid := 0; pid < nProcesses; pid++ {
 			snapshots[pid] = p.snapshotsByPID[pid][snapId]
 		}
+
+		// apply the invariants to the snapshot set
 		for _, checker := range p.invariantCheckers {
 			if err := checker(snapshots...); err != nil {
 				return fmt.Errorf("parser.Verify (snap %d): %w", snapId, err)
@@ -82,4 +85,27 @@ func (p *Parser) Verify() error {
 	}
 
 	return nil
+}
+
+// getSnapshotsPerPIDCount checks if all processes (PIDs) have the same number
+// of snapshots in the snapshotsByPID map. It returns the count of snapshots
+// per PID if they are consistent across all PIDs, or an error if there is a
+// mismatch.
+//
+// Returns:
+//   - int: The number of snapshots per PID, if consistent.
+//   - error: An error indicating which PID has a mismatch and the expected count
+//     if the snapshots are inconsistent. If this is non-nil, then the returned
+//     int is undefined and its value should not be used.
+func (p *Parser) getSnapshotsPerPIDCount() (int, error) {
+	count := len(p.snapshotsByPID[0])
+	for pid, snapshots := range p.snapshotsByPID {
+		if len(snapshots) != count {
+			return 0, fmt.Errorf(
+				"parser.getSnapshotsPerPIDCount: process %d has %d snapshots, expected %d as the others",
+				pid, len(snapshots), count,
+			)
+		}
+	}
+	return count, nil
 }

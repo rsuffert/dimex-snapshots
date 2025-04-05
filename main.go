@@ -89,16 +89,16 @@ func terminate() {
 
 	sig := <-sigChan // blocks until one of the signals above is received
 
-	logrus.Infof("Received signal: %s. Exiting...", sig)
+	logrus.Infof("Received '%s' signal. Exiting...\n\n", sig)
 
-	logrus.Infof("Beginning to parse and verify snapshots...")
-
+	logrus.Infof("Parsing the snapshot files...")
 	snapsParser, err := snapshots.NewParser()
 	if err != nil {
 		logrus.Errorf("Failed to parse snapshots: %v", err)
 		os.Exit(1)
 	}
 
+	logrus.Infof("Verifying the parsed snapshots...")
 	if err := snapsParser.Verify(); err != nil {
 		logrus.Infof("Inconsistency detected in snapshots: %v", err)
 		os.Exit(1)
