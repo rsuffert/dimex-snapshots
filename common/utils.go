@@ -41,3 +41,20 @@ func Count[T any](items []T, predicate func(T) bool) int {
 	}
 	return count
 }
+
+// All checks if all elements in the provided slice satisfy the given predicate function.
+//
+// Parameters:
+//   - items: A slice of type T containing the elements to be checked.
+//   - predicate: A function that takes an element of type T and returns a boolean.
+//
+// Returns:
+//   - bool: True if all elements satisfy the predicate, false otherwise.
+func All[T any](items []T, predicate func(T) bool) bool {
+	for _, item := range items {
+		if !predicate(item) {
+			return false
+		}
+	}
+	return true
+}

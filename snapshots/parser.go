@@ -66,12 +66,13 @@ func (p *Parser) Verify() error {
 		for pid := 0; pid < nProcesses; pid++ {
 			snapshots = append(snapshots, p.snapshotsByPID[pid][snapId])
 		}
-
-		// TODO: Call functions for verifying the snapshots that are in the 'snapshots' list
 		if err := checkMutualExclusion(snapshots...); err != nil {
 			return fmt.Errorf("parser.Verify: %w", err)
 		}
 		if err := checkWaitingImpliesWantOrInCS(snapshots...); err != nil {
+			return fmt.Errorf("parser.Verify: %w", err)
+		}
+		if err := checkIdleProcessesState(snapshots...); err != nil {
 			return fmt.Errorf("parser.Verify: %w", err)
 		}
 	}
@@ -122,6 +123,38 @@ func checkWaitingImpliesWantOrInCS(snapshots ...Snapshot) error {
 		}
 		if snapshot.State != int(common.InMX) && snapshot.State != int(common.WantMX) {
 			return fmt.Errorf("checkWaitingImpliesWantOrInCS: process %d is delaying responses but not InMX or WantMX", snapshot.PID)
+		}
+	}
+	return nil
+}
+
+// checkIdleProcessesState verifies the state of a set of snapshots to ensure that all processes are idle.
+// If all processes are idle, it performs additional checks to ensure that no process is delaying responses
+// or has intercepted messages. If any of these conditions are violated, an error is returned.
+//
+// Parameters:
+//
+//	snapshots - A variadic parameter representing a list of Snapshot objects to be checked.
+//
+// Returns:
+//
+//	error - Returns an error if any process is delaying responses or has intercepted messages
+//	        when all processes are idle. Returns nil otherwise.
+func checkIdleProcessesState(snapshots ...Snapshot) error {
+	allIdle := common.All(snapshots, func(s Snapshot) bool {
+		return s.State == int(common.NoMX)
+	})
+	if !allIdle {
+		return nil
+	}
+
+	for _, snapshot := range snapshots {
+		isDelayingResps := common.Any(snapshot.Waiting, func(w bool) bool { return w })
+		if isDelayingResps {
+			return fmt.Errorf("checkIdleProcessesState: process %d is delaying responses, but all processes are idle", snapshot.PID)
+		}
+		if len(snapshot.InterceptedMsgs) > 0 {
+			return fmt.Errorf("checkIdleProcessesState: process %d has intercepted messages, but all processes are idle", snapshot.PID)
 		}
 	}
 	return nil
