@@ -19,7 +19,7 @@ type Snapshot struct {
 	NbrResps        int
 	InterceptedMsgs []PP2PLink.PP2PLink_Ind_Message
 
-	CollectedResps int
+	CollectedResps int `json:"-"`
 }
 
 func (s *Snapshot) DumpToFile() error {
