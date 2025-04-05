@@ -50,8 +50,11 @@ func parseDumpFile(filename string) ([]Snapshot, error) {
 }
 
 // Verify checks the consistency and correctness of the snapshots stored in the Parser.
-// If any of validation fails, an error is returned immediately with details about the
-// first detected failure. If all validations pass, nil is returned.
+// For each set of the i-th snapshots of the existing processes, it verifies if the set
+// upholds some given invariants. If an invariant violation is detected for the current
+// snapshots set, Verify immediately returns an error and stops verifying the subsequent
+// invariants for the set. The subsequent sets will also not be verified. It returns nil
+// if ALL snapshots of ALL sets uphold ALL the invariants.
 func (p *Parser) Verify() error {
 	nSnapshots := len(p.snapshotsByPID[0])
 	for pid, snapshots := range p.snapshotsByPID {
