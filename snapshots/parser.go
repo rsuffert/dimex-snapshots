@@ -68,6 +68,9 @@ func (p *Parser) Verify() error {
 		if err := checkMutualExclusion(snapshots...); err != nil {
 			return fmt.Errorf("parser.Verify: %w", err)
 		}
+		if err := checkWaitingImpliesWantOrInCS(snapshots...); err != nil {
+			return fmt.Errorf("parser.Verify: %w", err)
+		}
 	}
 
 	return nil
@@ -83,6 +86,19 @@ func checkMutualExclusion(snapshots ...Snapshot) error {
 
 	if inCriticalSectionCount > 1 {
 		return fmt.Errorf("checkMutualExclusion: %d processes in critical section (more than 1)", inCriticalSectionCount)
+	}
+
+	return nil
+}
+
+func checkWaitingImpliesWantOrInCS(snapshots ...Snapshot) error {
+	for _, snapshot := range snapshots {
+		if !common.Any(snapshot.Waiting, func(w bool) bool { return w }) {
+			continue
+		}
+		if snapshot.State != int(common.InMX) && snapshot.State != int(common.WantMX) {
+			return fmt.Errorf("checkWaitingImpliesWantOrInCS: process %d is delaying responses but not InMX or WantMX", snapshot.PID)
+		}
 	}
 
 	return nil
