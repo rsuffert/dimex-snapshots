@@ -67,13 +67,13 @@ func (p *Parser) Verify() error {
 			snapshots = append(snapshots, p.snapshotsByPID[pid][snapId])
 		}
 		if err := checkMutualExclusion(snapshots...); err != nil {
-			return fmt.Errorf("parser.Verify: %w", err)
+			return fmt.Errorf("parser.Verify (snap %d): %w", snapId, err)
 		}
 		if err := checkWaitingImpliesWantOrInCS(snapshots...); err != nil {
-			return fmt.Errorf("parser.Verify: %w", err)
+			return fmt.Errorf("parser.Verify (snap %d): %w", snapId, err)
 		}
 		if err := checkIdleProcessesState(snapshots...); err != nil {
-			return fmt.Errorf("parser.Verify: %w", err)
+			return fmt.Errorf("parser.Verify (snap %d): %w", snapId, err)
 		}
 	}
 
