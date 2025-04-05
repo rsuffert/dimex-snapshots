@@ -72,7 +72,7 @@ func (p *Parser) Verify() error {
 	for snapId := 0; snapId < nSnapshots; snapId++ {
 		snapshots := make([]Snapshot, nProcesses)
 		for pid := 0; pid < nProcesses; pid++ {
-			snapshots = append(snapshots, p.snapshotsByPID[pid][snapId])
+			snapshots[pid] = p.snapshotsByPID[pid][snapId]
 		}
 		for _, checker := range p.invariantCheckers {
 			if err := checker(snapshots...); err != nil {
