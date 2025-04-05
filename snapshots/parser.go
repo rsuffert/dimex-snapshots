@@ -49,6 +49,9 @@ func parseDumpFile(filename string) ([]Snapshot, error) {
 	return snapshots, nil
 }
 
+// Verify checks the consistency and correctness of the snapshots stored in the Parser.
+// If any of validation fails, an error is returned immediately with details about the
+// first detected failure. If all validations pass, nil is returned.
 func (p *Parser) Verify() error {
 	nSnapshots := len(p.snapshotsByPID[0])
 	for pid, snapshots := range p.snapshotsByPID {
@@ -76,21 +79,42 @@ func (p *Parser) Verify() error {
 	return nil
 }
 
+// checkMutualExclusion verifies that the mutual exclusion property is upheld
+// across the provided snapshots. It ensures that at most one process is in
+// the critical section at any given time.
+//
+// Parameters:
+//
+//	snapshots - A variadic list of Snapshot objects representing the state
+//	            of different processes.
+//
+// Returns:
+//
+//	An error if more than one process is found to be in the critical section,
+//	otherwise nil.
 func checkMutualExclusion(snapshots ...Snapshot) error {
-	inCriticalSectionCount := 0
-	for _, snapshot := range snapshots {
-		if snapshot.State == int(common.InMX) {
-			inCriticalSectionCount++
-		}
+	inCSCount := common.Count(snapshots, func(s Snapshot) bool {
+		return s.State == int(common.InMX)
+	})
+	if inCSCount > 1 {
+		return fmt.Errorf("checkMutualExclusion: %d processes in critical section (more than 1)", inCSCount)
 	}
-
-	if inCriticalSectionCount > 1 {
-		return fmt.Errorf("checkMutualExclusion: %d processes in critical section (more than 1)", inCriticalSectionCount)
-	}
-
 	return nil
 }
 
+// checkWaitingImpliesWantOrInCS verifies that for each snapshot provided, if the process
+// is in a "waiting" state (indicated by any `true` value in the `Waiting` slice),
+// then the process must either be in the "InMX" state (critical section) or the "WantMX" state
+// (intending to enter the critical section). If this condition is violated, an error is returned.
+//
+// Parameters:
+//
+//	snapshots - A variadic parameter of Snapshot objects representing the state of processes.
+//
+// Returns:
+//
+//	error - An error describing the violation if the condition is not met, or nil if all snapshots
+//	        satisfy the condition.
 func checkWaitingImpliesWantOrInCS(snapshots ...Snapshot) error {
 	for _, snapshot := range snapshots {
 		if !common.Any(snapshot.Waiting, func(w bool) bool { return w }) {
@@ -100,6 +124,5 @@ func checkWaitingImpliesWantOrInCS(snapshots ...Snapshot) error {
 			return fmt.Errorf("checkWaitingImpliesWantOrInCS: process %d is delaying responses but not InMX or WantMX", snapshot.PID)
 		}
 	}
-
 	return nil
 }
