@@ -8,12 +8,18 @@ import (
 )
 
 type Parser struct {
-	snapshotsByPID [][]Snapshot // [i][j] = j-th snapshot of i-th process
+	snapshotsByPID    [][]Snapshot // [i][j] = j-th snapshot of i-th process
+	invariantCheckers []invariantCheckerFunc
 }
 
 func NewParser() (*Parser, error) {
 	p := &Parser{
 		snapshotsByPID: make([][]Snapshot, len(dumpFiles)),
+		invariantCheckers: []invariantCheckerFunc{
+			checkMutualExclusion,
+			checkWaitingImpliesWantOrInCS,
+			checkIdleProcessesState,
+		},
 	}
 
 	for dumpFile, pid := range dumpFiles {
@@ -68,14 +74,10 @@ func (p *Parser) Verify() error {
 		for pid := 0; pid < nProcesses; pid++ {
 			snapshots = append(snapshots, p.snapshotsByPID[pid][snapId])
 		}
-		if err := checkMutualExclusion(snapshots...); err != nil {
-			return fmt.Errorf("parser.Verify (snap %d): %w", snapId, err)
-		}
-		if err := checkWaitingImpliesWantOrInCS(snapshots...); err != nil {
-			return fmt.Errorf("parser.Verify (snap %d): %w", snapId, err)
-		}
-		if err := checkIdleProcessesState(snapshots...); err != nil {
-			return fmt.Errorf("parser.Verify (snap %d): %w", snapId, err)
+		for _, checker := range p.invariantCheckers {
+			if err := checker(snapshots...); err != nil {
+				return fmt.Errorf("parser.Verify (snap %d): %w", snapId, err)
+			}
 		}
 	}
 

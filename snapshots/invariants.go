@@ -5,6 +5,9 @@ import (
 	"fmt"
 )
 
+// invariantCheckerFunc is a function type that checks invariants on a set of snapshots.
+type invariantCheckerFunc func(snapshots ...Snapshot) error
+
 // checkMutualExclusion verifies that the mutual exclusion property is upheld
 // across the provided snapshots. It ensures that at most one process is in
 // the critical section at any given time.
