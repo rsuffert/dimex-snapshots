@@ -2,6 +2,7 @@ package main
 
 import (
 	"SD/DIMEX"
+	"SD/snapshots"
 	"flag"
 	"fmt"
 	"os"
@@ -27,7 +28,7 @@ func main() {
 		go worker(dmx)
 	}
 
-	waitForEndSignal()
+	terminate()
 }
 
 // worker simulates the flow of an application that uses the DIMEX module
@@ -82,15 +83,25 @@ func setLogger() {
 	logrus.SetLevel(loggingLevel)
 }
 
-func waitForEndSignal() {
+func terminate() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
 	sig := <-sigChan // blocks until one of the signals above is received
 
-	logrus.Infof("Received signal: %s. Exiting...", sig)
+	logrus.Infof("Received '%s' signal. Exiting...\n\n", sig)
 
-	// TODO: Add call for verifying the snapshot dumps here
+	logrus.Infof("Parsing the snapshot files...")
+	snapsParser, err := snapshots.NewParser()
+	if err != nil {
+		logrus.Errorf("Failed to parse snapshots: %v", err)
+		os.Exit(1)
+	}
 
-	logrus.Infof("Shutdown complete!")
+	logrus.Infof("Verifying the parsed snapshots...")
+	if err := snapsParser.Verify(); err != nil {
+		logrus.Infof("Inconsistency detected in snapshots: %v", err)
+		os.Exit(1)
+	}
+	logrus.Infof("No inconsistencies detected in snapshots!")
 }
