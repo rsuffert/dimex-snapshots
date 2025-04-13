@@ -87,3 +87,34 @@ func checkIdleProcessesState(snapshots ...Snapshot) error {
 	}
 	return nil
 }
+
+// checkOnlyInMXWithAllConsent verifies that a process in the critical section has received the
+// responses from all other processes to the entry request. If any process violates this condition,
+// an error is returned immediately.
+//
+// Parameters:
+//
+//	snapshots - A variadic parameter representing a list of Snapshot objects to be checked.
+//
+// Returns:
+//
+//	error - Returns an error if a process is in the critical section but has not received
+//	        responses from all other processes. Returns nil if all processes in the critical section
+//	        have received the responses from all other processes.
+func checkOnlyInMXWithAllConsent(snapshots ...Snapshot) error {
+	nProcesses := len(snapshots)
+
+	for _, snapshot := range snapshots {
+		isInMX := snapshot.State == int(common.InMX)
+		allCollectedResps := snapshot.NbrResps == (nProcesses - 1) // don't count itself
+		if isInMX && !allCollectedResps {
+			return fmt.Errorf(
+				"checkOnlyInMXWithAllConsent: process %d is in MX but not all responses received (only %d)",
+				snapshot.PID,
+				snapshot.NbrResps,
+			)
+		}
+	}
+
+	return nil
+}
