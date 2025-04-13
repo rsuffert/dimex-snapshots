@@ -154,7 +154,12 @@ func (module *DIMEX_Module) Start() {
 				if module.lastSnapshot != nil {
 					snapId = module.lastSnapshot.ID + 1
 				}
-				module.takeSnapshot(snapId)
+				// send a snapshot message to myself
+				module.sendToLink(
+					module.addresses[module.id],
+					fmt.Sprintf("%s;%d", SNAP, snapId),
+					fmt.Sprintf("PID %d", module.id),
+				)
 			}
 		}
 	}()
