@@ -150,3 +150,33 @@ func checkNotOtherDelaysWhenInMX(snapshots ...Snapshot) error {
 
 	return nil
 }
+
+// checkNotDelayingWhenNoMX verifies that if a process is in the NoMX state, it is not delaying
+// entry responses to other processes. If any process violates this condition, an error is returned
+// immediately.
+//
+// Parameters:
+//
+//	snapshots - A variadic parameter representing a list of Snapshot objects to be checked.
+//
+// Returns:
+//
+//	error - Returns an error if a process is in the NoMX state but is delaying entry responses.
+//	        Returns nil if no such violations are found.
+func checkNotDelayingWhenNoMX(snapshots ...Snapshot) error {
+	for _, snapshot := range snapshots {
+		if snapshot.State != int(common.NoMX) {
+			continue
+		}
+
+		isDelayingResps := common.Any(snapshot.Waiting, func(w bool) bool { return w })
+		if isDelayingResps {
+			return fmt.Errorf(
+				"checkNotDelayingWhenNoMX: process %d is NoMX but is delaying responses",
+				snapshot.PID,
+			)
+		}
+	}
+
+	return nil
+}

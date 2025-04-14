@@ -21,6 +21,7 @@ func NewParser() (*Parser, error) {
 			checkIdleProcessesState,
 			checkOnlyInMXWithAllConsent,
 			checkNotOtherDelaysWhenInMX,
+			checkNotDelayingWhenNoMX,
 		},
 	}
 
