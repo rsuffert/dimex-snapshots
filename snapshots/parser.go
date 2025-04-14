@@ -20,6 +20,7 @@ func NewParser() (*Parser, error) {
 			checkWaitingImpliesWantOrInCS,
 			checkIdleProcessesState,
 			checkOnlyInMXWithAllConsent,
+			checkNotOtherDelaysWhenInMX,
 		},
 	}
 
