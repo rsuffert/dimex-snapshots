@@ -326,7 +326,7 @@ func (m *DIMEX_Module) takeSnapshot(snapId int) {
 	m.lastSnapshot = &snapshots.Snapshot{
 		ID:              snapId,
 		PID:             m.id,
-		State:           int(m.st),
+		State:           m.st,
 		Waiting:         waiting,
 		LocalClock:      m.lcl,
 		ReqTs:           m.reqTs,

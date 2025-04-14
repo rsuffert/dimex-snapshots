@@ -23,7 +23,7 @@ type invariantCheckerFunc func(snapshots ...Snapshot) error
 //	otherwise nil.
 func checkMutualExclusion(snapshots ...Snapshot) error {
 	inCSCount := common.Count(snapshots, func(s Snapshot) bool {
-		return s.State == int(common.InMX)
+		return s.State == common.InMX
 	})
 	if inCSCount > 1 {
 		return fmt.Errorf("checkMutualExclusion: %d processes in critical section (more than 1)", inCSCount)
@@ -49,7 +49,7 @@ func checkWaitingImpliesWantOrInCS(snapshots ...Snapshot) error {
 		if !common.Any(snapshot.Waiting, func(w bool) bool { return w }) {
 			continue
 		}
-		if snapshot.State != int(common.InMX) && snapshot.State != int(common.WantMX) {
+		if snapshot.State != common.InMX && snapshot.State != common.WantMX {
 			return fmt.Errorf("checkWaitingImpliesWantOrInCS: process %d is delaying responses but not InMX or WantMX", snapshot.PID)
 		}
 	}
@@ -70,7 +70,7 @@ func checkWaitingImpliesWantOrInCS(snapshots ...Snapshot) error {
 //	        when all processes are idle. Returns nil otherwise.
 func checkIdleProcessesState(snapshots ...Snapshot) error {
 	allIdle := common.All(snapshots, func(s Snapshot) bool {
-		return s.State == int(common.NoMX)
+		return s.State == common.NoMX
 	})
 	if !allIdle {
 		return nil
@@ -105,7 +105,7 @@ func checkOnlyInMXWithAllConsent(snapshots ...Snapshot) error {
 	nProcesses := len(snapshots)
 
 	for _, snapshot := range snapshots {
-		isInMX := snapshot.State == int(common.InMX)
+		isInMX := snapshot.State == common.InMX
 		allCollectedResps := snapshot.NbrResps == (nProcesses - 1) // don't count itself
 		if isInMX && !allCollectedResps {
 			return fmt.Errorf(
@@ -133,7 +133,7 @@ func checkOnlyInMXWithAllConsent(snapshots ...Snapshot) error {
 //	        delaying the entry response. Returns nil if no such violations are found.
 func checkNotOtherDelaysWhenInMX(snapshots ...Snapshot) error {
 	for _, snapshot := range snapshots {
-		if snapshot.State != int(common.InMX) {
+		if snapshot.State != common.InMX {
 			continue
 		}
 
@@ -165,7 +165,7 @@ func checkNotOtherDelaysWhenInMX(snapshots ...Snapshot) error {
 //	        Returns nil if no such violations are found.
 func checkNotDelayingWhenNoMX(snapshots ...Snapshot) error {
 	for _, snapshot := range snapshots {
-		if snapshot.State != int(common.NoMX) {
+		if snapshot.State != common.NoMX {
 			continue
 		}
 

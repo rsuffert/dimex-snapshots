@@ -2,6 +2,7 @@ package snapshots
 
 import (
 	"SD/PP2PLink"
+	"SD/common"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,7 +13,7 @@ var dumpFiles = make(map[string]int)
 type Snapshot struct {
 	ID              int
 	PID             int
-	State           int
+	State           common.State
 	Waiting         []bool
 	LocalClock      int
 	ReqTs           int
