@@ -8,13 +8,16 @@ import (
 )
 
 type Parser struct {
-	snapshotsByPID    [][]Snapshot // [i][j] = j-th snapshot of i-th process
+	scanners          []*bufio.Scanner
 	invariantCheckers []invariantCheckerFunc
 }
 
+// NewParser creates a new instance of a Parser, which can then be used for verifying the snapshots
+// taken by the processes during the execution of the mutual exclusion algorithm.
 func NewParser() (*Parser, error) {
+	nProcesses := len(dumpFiles)
 	p := &Parser{
-		snapshotsByPID: make([][]Snapshot, len(dumpFiles)),
+		scanners: make([]*bufio.Scanner, nProcesses),
 		invariantCheckers: []invariantCheckerFunc{
 			checkMutualExclusion,
 			checkWaitingImpliesWantOrInCS,
@@ -26,89 +29,91 @@ func NewParser() (*Parser, error) {
 	}
 
 	for dumpFile, pid := range dumpFiles {
-		snapshots, err := parseDumpFile(dumpFile)
+		file, err := os.Open(dumpFile)
 		if err != nil {
-			return nil, fmt.Errorf("snapshots.NewParser parseDumpFile: %w", err)
+			return nil, fmt.Errorf("snapshots.NewParser failed to open file '%s': %w", dumpFile, err)
 		}
-		p.snapshotsByPID[pid] = snapshots
+		p.scanners[pid] = bufio.NewScanner(file)
 	}
 
 	return p, nil
 }
 
-func parseDumpFile(filename string) ([]Snapshot, error) {
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open '%s' file: %w", filename, err)
-	}
-	defer file.Close()
-
-	var snapshots []Snapshot
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		var snapshot Snapshot
-		if err := json.Unmarshal(scanner.Bytes(), &snapshot); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
-		}
-		snapshots = append(snapshots, snapshot)
-	}
-
-	return snapshots, nil
-}
-
-// Verify checks the consistency and correctness of the snapshots stored in the Parser.
-// For each set of the i-th snapshots of the existing processes, it verifies if the set
-// upholds some given invariants. If an invariant violation is detected for the current
-// snapshots set, Verify immediately returns an error and stops verifying the subsequent
-// invariants for the set. The subsequent sets will also not be verified. It returns nil
-// if ALL snapshots of ALL sets uphold ALL the invariants.
+// Verify iterates through all snapshot sets and validates them using the
+// registered invariant checkers. It ensures that each snapshot set adheres
+// to the defined invariants.
+//
+// If an error occurs while reading the snapshots or if an invariant violation
+// is detected, the method returns an error with detailed context, including
+// the snapshot ID where the issue occurred.
+//
+// Returns nil if all snapshots are successfully verified without errors.
 func (p *Parser) Verify() error {
-	nSnapshots, err := p.getSnapshotsPerPIDCount()
-	if err != nil {
-		return fmt.Errorf("parser.Verify: %w", err)
-	}
+	snapId := 0
 
-	nProcesses := len(p.snapshotsByPID)
-
-	// for each snapshot set (snapID)
-	for snapId := 0; snapId < nSnapshots; snapId++ {
-		// build the snapshot set with the snapId-th snapshot of each process
-		snapshots := make([]Snapshot, nProcesses)
-		for pid := 0; pid < nProcesses; pid++ {
-			snapshots[pid] = p.snapshotsByPID[pid][snapId]
+	for {
+		snapshots, err := p.getNextSnapshotsSet()
+		if err != nil {
+			return fmt.Errorf("parser.Verify (snapId %d): error reading snapshots: %w", snapId, err)
 		}
 
-		// apply the invariants to the snapshot set
+		if snapshots == nil {
+			// no more snapshots to verify
+			break
+		}
+
 		for _, checker := range p.invariantCheckers {
-			if err := checker(snapshots...); err != nil {
-				return fmt.Errorf("parser.Verify (snap %d): %w", snapId, err)
+			if err := checker(*snapshots...); err != nil {
+				return fmt.Errorf("parser.Verify (snapId %d): invariant violation: %w", snapId, err)
 			}
 		}
+
+		snapId++
 	}
 
 	return nil
 }
 
-// getSnapshotsPerPIDCount checks if all processes (PIDs) have the same number
-// of snapshots in the snapshotsByPID map. It returns the count of snapshots
-// per PID if they are consistent across all PIDs, or an error if there is a
-// mismatch.
+// getNextSnapshotsSet reads the next set of snapshots from all scanners in the Parser.
+// It expects each scanner to provide a JSON-encoded snapshot, which is unmarshaled into
+// a Snapshot struct. The function ensures that all scanners have the same number of snapshots.
 //
 // Returns:
-//   - int: The number of snapshots per PID, if consistent.
-//   - error: An error indicating which PID has a mismatch and the expected count
-//     if the snapshots are inconsistent. If this is non-nil, then the returned
-//     int is undefined and its value should not be used.
-func (p *Parser) getSnapshotsPerPIDCount() (int, error) {
-	count := len(p.snapshotsByPID[0])
-	for pid, snapshots := range p.snapshotsByPID {
-		if len(snapshots) != count {
-			return 0, fmt.Errorf(
-				"parser.getSnapshotsPerPIDCount: process %d has %d snapshots, expected %d as the others",
-				pid, len(snapshots), count,
+//   - A pointer to a slice of Snapshot structs if all scanners successfully provide a snapshot.
+//   - An error if any scanner encounters an issue (e.g., read error, unmarshaling error, or mismatched snapshot counts).
+//   - A nil pointer and no error if all scanners have reached EOF and there are no more snapshots to read.
+func (p *Parser) getNextSnapshotsSet() (*[]Snapshot, error) {
+	nProcesses := len(p.scanners)
+	snapshots := make([]Snapshot, nProcesses)
+	eofCount := 0
+
+	for pid, scanner := range p.scanners {
+		if !scanner.Scan() {
+			if scanner.Err() != nil {
+				return nil, fmt.Errorf("parser.getNextSnapshotsSet (pid %d): error reading line: %w", pid, scanner.Err())
+			}
+			// this scanner has reached EOF
+			eofCount++
+			continue
+		}
+
+		var s Snapshot
+		if err := json.Unmarshal(scanner.Bytes(), &s); err != nil {
+			return nil, fmt.Errorf("parser.getNextSnapshotsSet (pid %d): error unmarshaling snapshot: %w", pid, err)
+		}
+		snapshots[pid] = s
+	}
+
+	if eofCount > 0 {
+		if eofCount != nProcesses {
+			return nil, fmt.Errorf(
+				"parser.getNextSnapshotsSet: %d processes have reached EOF, but %d processes still have snapshots remaining",
+				eofCount,
+				nProcesses-eofCount,
 			)
 		}
+		return nil, nil // all scanners reached EOF
 	}
-	return count, nil
+
+	return &snapshots, nil
 }
