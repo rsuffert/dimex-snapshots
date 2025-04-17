@@ -39,22 +39,22 @@ func NewParser() (*Parser, error) {
 	return p, nil
 }
 
-// Verify iterates through all snapshot sets and validates them using the
-// registered invariant checkers. It ensures that each snapshot set adheres
-// to the defined invariants.
+// ParseVerify iterates through all snapshot files, parses and validates them using
+// the registered invariant checkers. It ensures that each snapshot set adheres to
+// the defined invariants.
 //
 // If an error occurs while reading the snapshots or if an invariant violation
 // is detected, the method immediately aborts and returns an error with detailed
 // context, including the snapshot ID where the issue occurred.
 //
 // Returns nil if all snapshots are successfully verified without errors.
-func (p *Parser) Verify() error {
+func (p *Parser) ParseVerify() error {
 	snapId := 0
 
 	for {
 		snapshots, err := p.getNextSnapshotsSet()
 		if err != nil {
-			return fmt.Errorf("parser.Verify (snapId %d): error reading snapshots: %w", snapId, err)
+			return fmt.Errorf("parser.ParseVerify (snapId %d): error reading snapshots: %w", snapId, err)
 		}
 
 		if snapshots == nil {
@@ -64,7 +64,7 @@ func (p *Parser) Verify() error {
 
 		for _, checker := range p.invariantCheckers {
 			if err := checker(*snapshots...); err != nil {
-				return fmt.Errorf("parser.Verify (snapId %d): invariant violation: %w", snapId, err)
+				return fmt.Errorf("parser.ParseVerify (snapId %d): invariant violation: %w", snapId, err)
 			}
 		}
 
