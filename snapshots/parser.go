@@ -8,15 +8,19 @@ import (
 )
 
 type Parser struct {
+	files             []*os.File
 	scanners          []*bufio.Scanner
 	invariantCheckers []invariantCheckerFunc
 }
 
 // NewParser creates a new instance of a Parser, which can then be used for verifying the snapshots
-// taken by the processes during the execution of the mutual exclusion algorithm.
-func NewParser() (*Parser, error) {
+// taken by the processes during the execution of the mutual exclusion algorithm. The user is
+// responsible for calling Init() before performing any operations on the Parser instance, and
+// Close() after all operations are completed to ensure proper resource management.
+func NewParser() *Parser {
 	nProcesses := len(dumpFiles)
 	p := &Parser{
+		files:    make([]*os.File, nProcesses),
 		scanners: make([]*bufio.Scanner, nProcesses),
 		invariantCheckers: []invariantCheckerFunc{
 			checkMutualExclusion,
@@ -28,15 +32,30 @@ func NewParser() (*Parser, error) {
 		},
 	}
 
+	return p
+}
+
+// Init initializes the Parser instance.
+func (p *Parser) Init() error {
 	for dumpFile, pid := range dumpFiles {
 		file, err := os.Open(dumpFile)
 		if err != nil {
-			return nil, fmt.Errorf("snapshots.NewParser failed to open file '%s': %w", dumpFile, err)
+			return fmt.Errorf("parser.Init: failed to open file '%s': %w", dumpFile, err)
 		}
+		p.files[pid] = file
 		p.scanners[pid] = bufio.NewScanner(file)
 	}
+	return nil
+}
 
-	return p, nil
+// Close terminates the Parser instance and releases any resources it holds.
+func (p *Parser) Close() error {
+	for _, file := range p.files {
+		if err := file.Close(); err != nil {
+			return fmt.Errorf("parser.Close: failed to close file: %w", err)
+		}
+	}
+	return nil
 }
 
 // ParseVerify iterates through all snapshot files, parses and validates them using

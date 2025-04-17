@@ -92,11 +92,14 @@ func terminate() {
 	logrus.Infof("Received '%s' signal. Exiting...\n\n", sig)
 
 	logrus.Infof("Instantiating a parser to verify the snapshots...")
-	snapsParser, err := snapshots.NewParser()
-	if err != nil {
-		logrus.Errorf("Failed to instantiate parser: %v", err)
+
+	snapsParser := snapshots.NewParser()
+
+	if err := snapsParser.Init(); err != nil {
+		logrus.Errorf("Failed to Init parser: %v", err)
 		os.Exit(1)
 	}
+	defer snapsParser.Close()
 
 	logrus.Infof("Parsing and verifying snapshots...")
 	if err := snapsParser.ParseVerify(); err != nil {
