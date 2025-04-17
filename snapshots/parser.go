@@ -44,8 +44,8 @@ func NewParser() (*Parser, error) {
 // to the defined invariants.
 //
 // If an error occurs while reading the snapshots or if an invariant violation
-// is detected, the method returns an error with detailed context, including
-// the snapshot ID where the issue occurred.
+// is detected, the method immediately aborts and returns an error with detailed
+// context, including the snapshot ID where the issue occurred.
 //
 // Returns nil if all snapshots are successfully verified without errors.
 func (p *Parser) Verify() error {
@@ -104,16 +104,20 @@ func (p *Parser) getNextSnapshotsSet() (*[]Snapshot, error) {
 		snapshots[pid] = s
 	}
 
-	if eofCount > 0 {
-		if eofCount != nProcesses {
-			return nil, fmt.Errorf(
-				"parser.getNextSnapshotsSet: %d processes have reached EOF, but %d processes still have snapshots remaining",
-				eofCount,
-				nProcesses-eofCount,
-			)
-		}
-		return nil, nil // all scanners reached EOF
+	if eofCount == 0 {
+		// all scanners have provided a snapshot
+		return &snapshots, nil
 	}
 
-	return &snapshots, nil
+	if eofCount != nProcesses {
+		// only some scanners have reached EOF (other scanners still have snapshots)
+		return nil, fmt.Errorf(
+			"parser.getNextSnapshotsSet: %d processes have reached EOF, but %d processes still have snapshots remaining",
+			eofCount,
+			nProcesses-eofCount,
+		)
+	}
+
+	// all scanners have reached EOF - no more snapshots to read
+	return nil, nil
 }
