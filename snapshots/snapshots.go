@@ -25,7 +25,7 @@ type Snapshot struct {
 
 func (s *Snapshot) DumpToFile() error {
 	path := fmt.Sprintf("snapshots-pid-%d.txt", s.PID)
-	dumpFiles[path] = s.PID
+	dumpFiles[path] = s.PID // store the name of the file and the PID of the process for later parsing
 
 	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
