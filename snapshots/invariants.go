@@ -32,9 +32,8 @@ func checkMutualExclusion(snapshots ...Snapshot) error {
 }
 
 // checkWaitingImpliesWantOrInCS verifies that for each snapshot provided, if the process
-// is in a "waiting" state (indicated by any `true` value in the `Waiting` slice),
-// then the process must either be in the "InMX" state (critical section) or the "WantMX" state
-// (intending to enter the critical section). If this condition is violated, an error is returned.
+// is delaying entry responses to other processes, then it must either be in the "InMX"
+// state (critical section) or the "WantMX" state (intending to enter the critical section).
 //
 // Parameters:
 //
@@ -46,7 +45,8 @@ func checkMutualExclusion(snapshots ...Snapshot) error {
 //	        satisfy the condition.
 func checkWaitingImpliesWantOrInCS(snapshots ...Snapshot) error {
 	for _, snapshot := range snapshots {
-		if !common.Any(snapshot.Waiting, func(w bool) bool { return w }) {
+		isDelayingResps := common.Any(snapshot.Waiting, func(w bool) bool { return w })
+		if !isDelayingResps {
 			continue
 		}
 		if snapshot.State != common.InMX && snapshot.State != common.WantMX {
@@ -56,9 +56,8 @@ func checkWaitingImpliesWantOrInCS(snapshots ...Snapshot) error {
 	return nil
 }
 
-// checkIdleProcessesState verifies the state of a set of snapshots to ensure that all processes are idle.
-// If all processes are idle, it performs additional checks to ensure that no process is delaying responses
-// or has intercepted messages. If any of these conditions are violated, an error is returned.
+// checkIdleProcessesState verifies the state of a set of snapshots to ensure that, if all processes are idle,
+// then no process is delaying entry responses or has intercepted messages.
 //
 // Parameters:
 //
@@ -89,8 +88,7 @@ func checkIdleProcessesState(snapshots ...Snapshot) error {
 }
 
 // checkOnlyInMXWithAllConsent verifies that a process in the critical section has received the
-// responses from all other processes to the entry request. If any process violates this condition,
-// an error is returned immediately.
+// responses from all other processes to the entry request.
 //
 // Parameters:
 //
@@ -120,8 +118,7 @@ func checkOnlyInMXWithAllConsent(snapshots ...Snapshot) error {
 }
 
 // checkNotOtherDelaysWhenInMX verifies that if a process is in the critical section, no other
-// process is delaying the entry response to it. If any process violates this condition, an error
-// is returned immediately.
+// process is delaying the entry response to it.
 //
 // Parameters:
 //
@@ -151,9 +148,8 @@ func checkNotOtherDelaysWhenInMX(snapshots ...Snapshot) error {
 	return nil
 }
 
-// checkNotDelayingWhenNoMX verifies that if a process is in the NoMX state, it is not delaying
-// entry responses to other processes. If any process violates this condition, an error is returned
-// immediately.
+// checkNotDelayingWhenNoMX verifies that, if a process is in the NoMX state, it is not delaying
+// entry responses to other processes.
 //
 // Parameters:
 //
