@@ -75,7 +75,6 @@ type DIMEX_Module struct {
 // ------------------------------------------------------------------------------------
 
 func NewDIMEX(_addresses []string, _id int, _dbg bool) *DIMEX_Module {
-
 	p2p := PP2PLink.NewPP2PLink(_addresses[_id], _dbg)
 
 	dmx := &DIMEX_Module{
@@ -90,13 +89,12 @@ func NewDIMEX(_addresses []string, _id int, _dbg bool) *DIMEX_Module {
 		reqTs:     0,
 		dbg:       _dbg,
 
-		Pp2plink: p2p}
-
-	for i := 0; i < len(dmx.waiting); i++ {
-		dmx.waiting[i] = false
+		Pp2plink: p2p,
 	}
+
 	dmx.Start()
 	dmx.outDbg("Init DIMEX!")
+
 	return dmx
 }
 
@@ -105,20 +103,18 @@ func NewDIMEX(_addresses []string, _id int, _dbg bool) *DIMEX_Module {
 // ------------------------------------------------------------------------------------
 
 func (module *DIMEX_Module) Start() {
-
 	go func() {
 		for {
 			select {
 			case dmxR := <-module.Req: // vindo da  aplicação
 				if dmxR == ENTER {
 					module.outDbg("app pede mx")
-					module.handleUponReqEntry() // ENTRADA DO ALGORITMO
+					module.handleUponReqEntry()
 
 				} else if dmxR == EXIT {
 					module.outDbg("app libera mx")
-					module.handleUponReqExit() // ENTRADA DO ALGORITMO
+					module.handleUponReqExit()
 				}
-
 			case msgOutro := <-module.Pp2plink.Ind: // vindo de outro processo
 				if strings.Contains(msgOutro.Message, SNAP) {
 					module.outDbg("         <<<---- snap!")
@@ -130,13 +126,11 @@ func (module *DIMEX_Module) Start() {
 					module.handleUponDeliverRespOk(
 						module.messagesMiddleware(msgOutro),
 					)
-
 				} else if strings.Contains(msgOutro.Message, REQ_ENTRY) {
 					module.outDbg("          <<<---- pede??  " + msgOutro.Message)
 					module.handleUponDeliverReqEntry(
 						module.messagesMiddleware(msgOutro),
 					)
-
 				}
 			}
 		}
@@ -148,19 +142,21 @@ func (module *DIMEX_Module) Start() {
 		defer ticker.Stop()
 		for t := range ticker.C {
 			turn := (t.Unix() / int64(snapshotIntervalSec)) % int64(len(module.addresses))
-			if int(turn) == module.id {
-				logrus.Infof("=========== P%d initiating a snapshot ===========\n", module.id)
-				snapId := 0
-				if module.lastSnapshot != nil {
-					snapId = module.lastSnapshot.ID + 1
-				}
-				// send a snapshot message to myself
-				module.sendToLink(
-					module.addresses[module.id],
-					fmt.Sprintf("%s;%d", SNAP, snapId),
-					fmt.Sprintf("PID %d", module.id),
-				)
+			if int(turn) != module.id {
+				continue
 			}
+
+			logrus.Infof("=========== P%d initiating a snapshot ===========\n", module.id)
+			snapId := 0
+			if module.lastSnapshot != nil {
+				snapId = module.lastSnapshot.ID + 1
+			}
+			// send a snapshot message to myself
+			module.sendToLink(
+				module.addresses[module.id],
+				fmt.Sprintf("%s;%d", SNAP, snapId),
+				fmt.Sprintf("PID %d", module.id),
+			)
 		}
 	}()
 }
@@ -335,14 +331,15 @@ func (m *DIMEX_Module) takeSnapshot(snapId int) {
 	}
 
 	for i, addr := range m.addresses {
-		if i != m.id {
-			m.sendToLink(
-				addr,
-				fmt.Sprintf("%s;%d", SNAP, snapId),
-				fmt.Sprintf("PID %d", m.id),
-			)
-			logrus.Debugf("P%d: sent SNAP to %s\n", m.id, addr)
+		if i == m.id {
+			continue
 		}
+		m.sendToLink(
+			addr,
+			fmt.Sprintf("%s;%d", SNAP, snapId),
+			fmt.Sprintf("PID %d", m.id),
+		)
+		logrus.Debugf("P%d: sent SNAP to %s\n", m.id, addr)
 	}
 }
 

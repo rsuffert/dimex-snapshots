@@ -91,15 +91,18 @@ func terminate() {
 
 	logrus.Infof("Received '%s' signal. Exiting...\n\n", sig)
 
-	logrus.Infof("Parsing the snapshot files...")
-	snapsParser, err := snapshots.NewParser()
-	if err != nil {
-		logrus.Errorf("Failed to parse snapshots: %v", err)
+	logrus.Infof("Instantiating a parser to verify the snapshots...")
+
+	snapsParser := snapshots.NewParser()
+
+	if err := snapsParser.Init(); err != nil {
+		logrus.Errorf("Failed to Init parser: %v", err)
 		os.Exit(1)
 	}
+	defer snapsParser.Close()
 
-	logrus.Infof("Verifying the parsed snapshots...")
-	if err := snapsParser.Verify(); err != nil {
+	logrus.Infof("Parsing and verifying snapshots...")
+	if err := snapsParser.ParseVerify(); err != nil {
 		logrus.Infof("Inconsistency detected in snapshots: %v", err)
 		os.Exit(1)
 	}
