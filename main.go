@@ -1,12 +1,12 @@
 package main
 
 import (
-	"SD/DIMEX"
-	"SD/snapshots"
 	"flag"
 	"fmt"
 	"os"
 	"os/signal"
+	"pucrs/sd/dimex"
+	"pucrs/sd/snapshots"
 	"syscall"
 	"time"
 
@@ -29,15 +29,15 @@ func main() {
 	}
 	logrus.SetLevel(loggingLevel)
 
-	dimexOpts := make([]DIMEX.Opt, 0)
+	dimexOpts := make([]dimex.Opt, 0)
 	if *failureMode {
 		logrus.Debug("Enabling failure simulation in the DiMEx module")
-		dimexOpts = append(dimexOpts, DIMEX.WithFailOpt())
+		dimexOpts = append(dimexOpts, dimex.WithFailOpt())
 	}
 
 	addresses := flag.Args()
 	for i := range addresses {
-		dmx := DIMEX.NewDIMEX(
+		dmx := dimex.NewDIMEX(
 			addresses,
 			i,
 			dimexOpts...,
@@ -51,7 +51,7 @@ func main() {
 // worker simulates the flow of an application that uses the DIMEX module
 // this code was provided as part of the skeleton implementation of the DIMEX module
 // and was slightly modified to work with the new implementation
-func worker(dmx *DIMEX.DIMEX_Module) {
+func worker(dmx *dimex.DIMEX_Module) {
 	// open file that all processes should write to
 	file, err := os.OpenFile("./mxOUT.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -66,7 +66,7 @@ func worker(dmx *DIMEX.DIMEX_Module) {
 	// do application-specific work to simulate the use of the DIMEX module
 	for {
 		// asks to access the DIMEX
-		dmx.Req <- DIMEX.ENTER
+		dmx.Req <- dimex.ENTER
 
 		// waits for the DIMEX to be released by other processes
 		<-dmx.Ind
@@ -84,7 +84,7 @@ func worker(dmx *DIMEX.DIMEX_Module) {
 		}
 
 		// release the DIMEX module
-		dmx.Req <- DIMEX.EXIT
+		dmx.Req <- dimex.EXIT
 	}
 }
 

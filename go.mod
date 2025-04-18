@@ -1,4 +1,4 @@
-module SD
+module pucrs/sd
 
 go 1.18
 

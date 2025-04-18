@@ -14,7 +14,7 @@
   se conexao fecha nao retorna nada.   melhorias em comentarios.   adicionado modo debug. - Dotti
 */
 
-package PP2PLink
+package pp2plink
 
 import (
 	"fmt"

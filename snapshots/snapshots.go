@@ -1,11 +1,11 @@
 package snapshots
 
 import (
-	"SD/PP2PLink"
-	"SD/common"
 	"encoding/json"
 	"fmt"
 	"os"
+	"pucrs/sd/common"
+	"pucrs/sd/pp2plink"
 )
 
 var dumpFiles = make(map[string]int)
@@ -18,7 +18,7 @@ type Snapshot struct {
 	LocalClock      int
 	ReqTs           int
 	NbrResps        int
-	InterceptedMsgs []PP2PLink.PP2PLink_Ind_Message
+	InterceptedMsgs []pp2plink.PP2PLink_Ind_Message
 
 	CollectedResps int `json:"-"`
 }
