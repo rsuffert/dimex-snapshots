@@ -83,7 +83,7 @@ func (p *PP2PLink) Start(address string) {
 						p.outDbg("erro : " + err.Error() + " conexao fechada pelo outro processo.")
 						break
 					}
-					tam, err := strconv.Atoi(string(bufTam))
+					tam, _ := strconv.Atoi(string(bufTam))
 					bufMsg := make([]byte, tam)        // declara buffer do tamanho exato
 					_, err = io.ReadFull(conn, bufMsg) // le do tamanho do buffer ou da erro
 					if err != nil {
@@ -134,8 +134,8 @@ func (p *PP2PLink) Send(message ReqMsg) {
 	if !(len(str) == 4) {
 		p.outDbg("ERROR AT PPLINK MESSAGE SIZE CALCULATION - INVALID MESSAGES MAY BE IN TRANSIT")
 	}
-	_, err = fmt.Fprintf(conn, str)             // escreve 4 caracteres com tamanho
-	_, err = fmt.Fprintf(conn, message.Message) // escreve a mensagem com o tamanho calculado
+	payload := append([]byte(str), []byte(message.Message)...) // escreve 4 caracteres com tamanho da mensagem e a mensagem
+	_, err = conn.Write(payload)
 	if err != nil {
 		p.outDbg("erro : " + err.Error() + ". Conexao fechada. 1 tentativa de reabrir:")
 		conn, err = net.Dial("tcp", message.To)
@@ -147,8 +147,6 @@ func (p *PP2PLink) Send(message ReqMsg) {
 			p.outDbg("ok   : conexao iniciada com outro processo.")
 		}
 		p.Cache[message.To] = conn
-		_, err = fmt.Fprintf(conn, str)             // escreve 4 caracteres com tamanho
-		_, err = fmt.Fprintf(conn, message.Message) // escreve a mensagem com o tamanho calculado
+		conn.Write(payload)
 	}
-	return
 }
