@@ -19,7 +19,7 @@ func main() {
 	flag.Parse()
 
 	if len(flag.Args()) < 2 {
-		logrus.Errorf("Usage: %s [-v] <address:port> <address:port> [<address:port>...]", os.Args[0])
+		logrus.Errorf("Usage: %s [-v] [-f] <address:port> <address:port> [<address:port>...]", os.Args[0])
 		os.Exit(1)
 	}
 
