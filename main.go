@@ -14,17 +14,34 @@ import (
 )
 
 func main() {
-	setLogger()
+	verboseMode := flag.Bool("v", false, "Enable verbose (debug) logging for snapshots")
+	failureMode := flag.Bool("f", false, "Enable failure simulation in the DiMEx module")
+	flag.Parse()
 
 	if len(flag.Args()) < 2 {
 		logrus.Errorf("Usage: %s [-v] <address:port> <address:port> [<address:port>...]", os.Args[0])
 		os.Exit(1)
 	}
 
-	addresses := flag.Args()
+	loggingLevel := logrus.InfoLevel
+	if *verboseMode {
+		loggingLevel = logrus.DebugLevel
+	}
+	logrus.SetLevel(loggingLevel)
 
+	dimexOpts := make([]DIMEX.Opt, 0)
+	if *failureMode {
+		logrus.Debug("Enabling failure simulation in the DiMEx module")
+		dimexOpts = append(dimexOpts, DIMEX.WithFailOpt())
+	}
+
+	addresses := flag.Args()
 	for i := range addresses {
-		dmx := DIMEX.NewDIMEX(addresses, i, false)
+		dmx := DIMEX.NewDIMEX(
+			addresses,
+			i,
+			dimexOpts...,
+		)
 		go worker(dmx)
 	}
 
@@ -69,18 +86,6 @@ func worker(dmx *DIMEX.DIMEX_Module) {
 		// release the DIMEX module
 		dmx.Req <- DIMEX.EXIT
 	}
-}
-
-func setLogger() {
-	verboseMode := flag.Bool("v", false, "Enable verbose (debug) logging for snapshots")
-	flag.Parse()
-
-	loggingLevel := logrus.InfoLevel
-	if *verboseMode {
-		loggingLevel = logrus.DebugLevel
-	}
-
-	logrus.SetLevel(loggingLevel)
 }
 
 func terminate() {

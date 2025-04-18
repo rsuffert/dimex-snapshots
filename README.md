@@ -6,13 +6,13 @@ This project has been developed as the first assignment for the Distributed Syst
 
 ## Usage
 
-The program has a `Makefile` for easier execution. To run the application with the default arguments (verbosity logging enabled and 3 processes), simply run `make` at the root of the project. The default configurations can be overwritten with:
+The program has a `Makefile` for easier execution. To run the application with the default arguments (verbosity logging enabled, failure simulation disabled, and 3 processes), simply run `make` at the root of the project. The default configurations can be overwritten with:
 
 ```bash
-make ARGS="[-v] <ip-address:port> <ip-address:port> [<ip-address:port>...]" 
+make ARGS="[-v] [-f] <ip-address:port> <ip-address:port> [<ip-address:port>...]" 
 ```
 
-Each `<ip-address:port>` pair is the address of a process of the system. The `-v` flag is optionally supplied for enabling verbose logging.
+Each `<ip-address:port>` pair is the address of a process of the system. The `-v` flag is optionally supplied for enabling verbose logging. The `-f` flag is optionally supplied for enabling failure simulation in the DiMEx module and trigger snapshot invariant violations.
 
 **NOTE**: To avoid retaining snapshots from previous executions in the files, prefer running the program using `make`, as the default recipe will run `make clean` to remove those output files and only then run `make run`.
 

@@ -53,6 +53,8 @@ type dmxResp struct { // mensagem do módulo DIMEX infrmando que pode acessar - 
 	// mensagem para aplicacao indicando que pode prosseguir
 }
 
+type Opt func(*DIMEX_Module)
+
 type DIMEX_Module struct {
 	Req       chan dmxReq  // canal para receber pedidos da aplicacao (REQ e EXIT)
 	Ind       chan dmxResp // canal para informar aplicacao que pode acessar
@@ -64,6 +66,7 @@ type DIMEX_Module struct {
 	reqTs     int          // timestamp local da ultima requisicao deste processo
 	nbrResps  int
 	dbg       bool
+	fail      bool // flag to simulate failures and trigger snapshot invariant violations
 
 	Pp2plink *PP2PLink.PP2PLink // acesso aa comunicacao enviar por PP2PLinq.Req  e receber por PP2PLinq.Ind
 
@@ -71,11 +74,23 @@ type DIMEX_Module struct {
 }
 
 // ------------------------------------------------------------------------------------
+// ------- options to customize the module
+// ------------------------------------------------------------------------------------
+
+// WithFailOpt is an option to enable failure simulation for the DIMEX module
+// and trigger snapshot invariant violations.
+func WithFailOpt() Opt {
+	return func(d *DIMEX_Module) {
+		d.fail = true
+	}
+}
+
+// ------------------------------------------------------------------------------------
 // ------- inicializacao
 // ------------------------------------------------------------------------------------
 
-func NewDIMEX(_addresses []string, _id int, _dbg bool) *DIMEX_Module {
-	p2p := PP2PLink.NewPP2PLink(_addresses[_id], _dbg)
+func NewDIMEX(_addresses []string, _id int, opts ...Opt) *DIMEX_Module {
+	p2p := PP2PLink.NewPP2PLink(_addresses[_id], false)
 
 	dmx := &DIMEX_Module{
 		Req: make(chan dmxReq, 1),
@@ -87,9 +102,14 @@ func NewDIMEX(_addresses []string, _id int, _dbg bool) *DIMEX_Module {
 		waiting:   make([]bool, len(_addresses)),
 		lcl:       0,
 		reqTs:     0,
-		dbg:       _dbg,
+		dbg:       false,
+		fail:      false,
 
 		Pp2plink: p2p,
+	}
+
+	for _, opt := range opts {
+		opt(dmx)
 	}
 
 	dmx.Start()
@@ -231,6 +251,12 @@ upon event [ pl, Deliver | p, [ respOk, r ] ]
 */
 func (module *DIMEX_Module) handleUponDeliverRespOk(msgOutro PP2PLink.PP2PLink_Ind_Message) {
 	module.nbrResps++
+
+	if module.fail {
+		// simulate a failure by counting the response twice
+		module.nbrResps++
+	}
+
 	if module.nbrResps == len(module.addresses)-1 {
 		module.st = common.InMX
 		module.Ind <- dmxResp{}
