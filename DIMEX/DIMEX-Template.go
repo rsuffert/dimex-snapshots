@@ -89,8 +89,8 @@ func WithFailOpt() Opt {
 // ------- inicializacao
 // ------------------------------------------------------------------------------------
 
-func NewDIMEX(_addresses []string, _id int, _dbg bool, opts ...Opt) *DIMEX_Module {
-	p2p := PP2PLink.NewPP2PLink(_addresses[_id], _dbg)
+func NewDIMEX(_addresses []string, _id int, opts ...Opt) *DIMEX_Module {
+	p2p := PP2PLink.NewPP2PLink(_addresses[_id], false)
 
 	dmx := &DIMEX_Module{
 		Req: make(chan dmxReq, 1),
@@ -102,7 +102,8 @@ func NewDIMEX(_addresses []string, _id int, _dbg bool, opts ...Opt) *DIMEX_Modul
 		waiting:   make([]bool, len(_addresses)),
 		lcl:       0,
 		reqTs:     0,
-		dbg:       _dbg,
+		dbg:       false,
+		fail:      false,
 
 		Pp2plink: p2p,
 	}

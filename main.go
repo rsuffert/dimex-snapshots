@@ -27,7 +27,6 @@ func main() {
 		dmx := DIMEX.NewDIMEX(
 			addresses,
 			i,
-			false,
 			//DIMEX.WithFailOpt(), // uncomment to enable failure simulation in DiMEx and trigger snapshots invariants violations
 		)
 		go worker(dmx)
