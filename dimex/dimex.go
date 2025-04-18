@@ -53,9 +53,9 @@ type dmxResp struct { // mensagem do módulo DIMEX infrmando que pode acessar - 
 	// mensagem para aplicacao indicando que pode prosseguir
 }
 
-type Opt func(*DIMEX_Module)
+type Opt func(*Dimex)
 
-type DIMEX_Module struct {
+type Dimex struct {
 	Req       chan dmxReq  // canal para receber pedidos da aplicacao (REQ e EXIT)
 	Ind       chan dmxResp // canal para informar aplicacao que pode acessar
 	addresses []string     // endereco de todos, na mesma ordem
@@ -80,7 +80,7 @@ type DIMEX_Module struct {
 // WithFailOpt is an option to enable failure simulation for the DIMEX module
 // and trigger snapshot invariant violations.
 func WithFailOpt() Opt {
-	return func(d *DIMEX_Module) {
+	return func(d *Dimex) {
 		d.fail = true
 	}
 }
@@ -89,10 +89,10 @@ func WithFailOpt() Opt {
 // ------- inicializacao
 // ------------------------------------------------------------------------------------
 
-func NewDIMEX(_addresses []string, _id int, opts ...Opt) *DIMEX_Module {
+func NewDimex(_addresses []string, _id int, opts ...Opt) *Dimex {
 	p2p := pp2plink.NewPP2PLink(_addresses[_id], false)
 
-	dmx := &DIMEX_Module{
+	dmx := &Dimex{
 		Req: make(chan dmxReq, 1),
 		Ind: make(chan dmxResp, 1),
 
@@ -122,34 +122,34 @@ func NewDIMEX(_addresses []string, _id int, opts ...Opt) *DIMEX_Module {
 // ------- nucleo do funcionamento
 // ------------------------------------------------------------------------------------
 
-func (module *DIMEX_Module) Start() {
+func (d *Dimex) Start() {
 	go func() {
 		for {
 			select {
-			case dmxR := <-module.Req: // vindo da  aplicação
+			case dmxR := <-d.Req: // vindo da  aplicação
 				if dmxR == ENTER {
-					module.outDbg("app pede mx")
-					module.handleUponReqEntry()
+					d.outDbg("app pede mx")
+					d.handleUponReqEntry()
 
 				} else if dmxR == EXIT {
-					module.outDbg("app libera mx")
-					module.handleUponReqExit()
+					d.outDbg("app libera mx")
+					d.handleUponReqExit()
 				}
-			case msgOutro := <-module.Pp2plink.Ind: // vindo de outro processo
+			case msgOutro := <-d.Pp2plink.Ind: // vindo de outro processo
 				if strings.Contains(msgOutro.Message, SNAP) {
-					module.outDbg("         <<<---- snap!")
-					module.handleIncomingSnap(
-						module.messagesMiddleware(msgOutro),
+					d.outDbg("         <<<---- snap!")
+					d.handleIncomingSnap(
+						d.messagesMiddleware(msgOutro),
 					)
 				} else if strings.Contains(msgOutro.Message, RESP_OK) {
-					module.outDbg("         <<<---- responde! " + msgOutro.Message)
-					module.handleUponDeliverRespOk(
-						module.messagesMiddleware(msgOutro),
+					d.outDbg("         <<<---- responde! " + msgOutro.Message)
+					d.handleUponDeliverRespOk(
+						d.messagesMiddleware(msgOutro),
 					)
 				} else if strings.Contains(msgOutro.Message, REQ_ENTRY) {
-					module.outDbg("          <<<---- pede??  " + msgOutro.Message)
-					module.handleUponDeliverReqEntry(
-						module.messagesMiddleware(msgOutro),
+					d.outDbg("          <<<---- pede??  " + msgOutro.Message)
+					d.handleUponDeliverReqEntry(
+						d.messagesMiddleware(msgOutro),
 					)
 				}
 			}
@@ -161,21 +161,21 @@ func (module *DIMEX_Module) Start() {
 		ticker := time.NewTicker(time.Duration(snapshotIntervalSec) * time.Second)
 		defer ticker.Stop()
 		for t := range ticker.C {
-			turn := (t.Unix() / int64(snapshotIntervalSec)) % int64(len(module.addresses))
-			if int(turn) != module.id {
+			turn := (t.Unix() / int64(snapshotIntervalSec)) % int64(len(d.addresses))
+			if int(turn) != d.id {
 				continue
 			}
 
-			logrus.Infof("=========== P%d initiating a snapshot ===========\n", module.id)
+			logrus.Infof("=========== P%d initiating a snapshot ===========\n", d.id)
 			snapId := 0
-			if module.lastSnapshot != nil {
-				snapId = module.lastSnapshot.ID + 1
+			if d.lastSnapshot != nil {
+				snapId = d.lastSnapshot.ID + 1
 			}
 			// send a snapshot message to myself
-			module.sendToLink(
-				module.addresses[module.id],
+			d.sendToLink(
+				d.addresses[d.id],
 				fmt.Sprintf("%s;%d", SNAP, snapId),
-				fmt.Sprintf("PID %d", module.id),
+				fmt.Sprintf("PID %d", d.id),
 			)
 		}
 	}()
@@ -197,20 +197,20 @@ upon event [ dmx, Entry  |  r ]  do
 		trigger [ pl , Send | [ reqEntry, r, myTs ]
 	estado := queroSC
 */
-func (module *DIMEX_Module) handleUponReqEntry() {
-	module.lcl++
-	module.reqTs = module.lcl
-	module.nbrResps = 0
-	for i := 0; i < len(module.addresses); i++ {
-		if i != module.id {
-			module.sendToLink(
-				module.addresses[i],
-				fmt.Sprintf("%s;%d;%d", REQ_ENTRY, module.id, module.reqTs),
-				fmt.Sprintf("PID %d", module.id),
+func (d *Dimex) handleUponReqEntry() {
+	d.lcl++
+	d.reqTs = d.lcl
+	d.nbrResps = 0
+	for i := 0; i < len(d.addresses); i++ {
+		if i != d.id {
+			d.sendToLink(
+				d.addresses[i],
+				fmt.Sprintf("%s;%d;%d", REQ_ENTRY, d.id, d.reqTs),
+				fmt.Sprintf("PID %d", d.id),
 			)
 		}
 	}
-	module.st = common.WantMX
+	d.st = common.WantMX
 }
 
 /*
@@ -221,18 +221,18 @@ upon event [ dmx, Exit  |  r  ]  do
 	estado := naoQueroSC
 	waiting := {}
 */
-func (module *DIMEX_Module) handleUponReqExit() {
-	for i := 0; i < len(module.waiting); i++ {
-		if module.waiting[i] && i != module.id {
-			module.sendToLink(
-				module.addresses[i],
-				fmt.Sprintf("%s;%d", RESP_OK, module.id),
-				fmt.Sprintf("PID %d", module.id),
+func (d *Dimex) handleUponReqExit() {
+	for i := 0; i < len(d.waiting); i++ {
+		if d.waiting[i] && i != d.id {
+			d.sendToLink(
+				d.addresses[i],
+				fmt.Sprintf("%s;%d", RESP_OK, d.id),
+				fmt.Sprintf("PID %d", d.id),
 			)
 		}
 	}
-	module.st = common.NoMX
-	module.waiting = make([]bool, len(module.addresses))
+	d.st = common.NoMX
+	d.waiting = make([]bool, len(d.addresses))
 }
 
 // ------------------------------------------------------------------------------------
@@ -249,17 +249,17 @@ upon event [ pl, Deliver | p, [ respOk, r ] ]
 	então trigger [ dmx, Deliver | free2Access ]
 		estado := estouNaSC
 */
-func (module *DIMEX_Module) handleUponDeliverRespOk(msgOutro pp2plink.PP2PLink_Ind_Message) {
-	module.nbrResps++
+func (d *Dimex) handleUponDeliverRespOk(msgOutro pp2plink.PP2PLink_Ind_Message) {
+	d.nbrResps++
 
-	if module.fail {
+	if d.fail {
 		// simulate a failure by counting the response twice
-		module.nbrResps++
+		d.nbrResps++
 	}
 
-	if module.nbrResps == len(module.addresses)-1 {
-		module.st = common.InMX
-		module.Ind <- dmxResp{}
+	if d.nbrResps == len(d.addresses)-1 {
+		d.st = common.InMX
+		d.Ind <- dmxResp{}
 	}
 }
 
@@ -275,25 +275,25 @@ upon event [ pl, Deliver | p, [ reqEntry, r, rts ]  do
 		então  postergados := postergados + [p, r ]
 		lts.ts := max(lts.ts, rts.ts)
 */
-func (module *DIMEX_Module) handleUponDeliverReqEntry(msgOutro pp2plink.PP2PLink_Ind_Message) {
+func (d *Dimex) handleUponDeliverReqEntry(msgOutro pp2plink.PP2PLink_Ind_Message) {
 	parts := strings.Split(msgOutro.Message, ";")
 	otherId, _ := strconv.Atoi(parts[1])
 	otherReqTs, _ := strconv.Atoi(parts[2])
 
-	if module.st == common.NoMX || (module.st == common.WantMX && after(module.reqTs, module.id, otherReqTs, otherId)) {
-		module.sendToLink(
-			module.addresses[otherId],
-			fmt.Sprintf("%s;%d", RESP_OK, module.id),
-			fmt.Sprintf("PID %d", module.id),
+	if d.st == common.NoMX || (d.st == common.WantMX && after(d.reqTs, d.id, otherReqTs, otherId)) {
+		d.sendToLink(
+			d.addresses[otherId],
+			fmt.Sprintf("%s;%d", RESP_OK, d.id),
+			fmt.Sprintf("PID %d", d.id),
 		)
 	} else {
-		module.waiting[otherId] = true
+		d.waiting[otherId] = true
 	}
 
-	module.lcl = max(module.lcl, otherReqTs)
+	d.lcl = max(d.lcl, otherReqTs)
 }
 
-func (m *DIMEX_Module) handleIncomingSnap(msg pp2plink.PP2PLink_Ind_Message) {
+func (m *Dimex) handleIncomingSnap(msg pp2plink.PP2PLink_Ind_Message) {
 	parts := strings.Split(msg.Message, ";")
 	snapId, _ := strconv.Atoi(parts[1])
 
@@ -318,9 +318,9 @@ func (m *DIMEX_Module) handleIncomingSnap(msg pp2plink.PP2PLink_Ind_Message) {
 // ------- funcoes de ajuda
 // ------------------------------------------------------------------------------------
 
-func (module *DIMEX_Module) sendToLink(address string, content string, space string) {
-	module.outDbg(space + " ---->>>>   to: " + address + "     msg: " + content)
-	module.Pp2plink.Req <- pp2plink.PP2PLink_Req_Message{
+func (d *Dimex) sendToLink(address string, content string, space string) {
+	d.outDbg(space + " ---->>>>   to: " + address + "     msg: " + content)
+	d.Pp2plink.Req <- pp2plink.PP2PLink_Req_Message{
 		To:      address,
 		Message: content}
 }
@@ -336,13 +336,13 @@ func max(one, oth int) int {
 	return oth
 }
 
-func (module *DIMEX_Module) outDbg(s string) {
-	if module.dbg {
+func (d *Dimex) outDbg(s string) {
+	if d.dbg {
 		fmt.Println(". . . . . . . . . . . . [ DIMEX : " + s + " ]")
 	}
 }
 
-func (m *DIMEX_Module) takeSnapshot(snapId int) {
+func (m *Dimex) takeSnapshot(snapId int) {
 	waiting := make([]bool, len(m.waiting))
 	copy(waiting, m.waiting)
 	m.lastSnapshot = &snapshots.Snapshot{
@@ -369,7 +369,7 @@ func (m *DIMEX_Module) takeSnapshot(snapId int) {
 	}
 }
 
-func (m *DIMEX_Module) messagesMiddleware(msg pp2plink.PP2PLink_Ind_Message) pp2plink.PP2PLink_Ind_Message {
+func (m *Dimex) messagesMiddleware(msg pp2plink.PP2PLink_Ind_Message) pp2plink.PP2PLink_Ind_Message {
 	if strings.Contains(msg.Message, SNAP) {
 		logrus.Debugf("\tP%d: received SNAP from %s\n", m.id, msg.From)
 		return msg

@@ -37,7 +37,7 @@ func main() {
 
 	addresses := flag.Args()
 	for i := range addresses {
-		dmx := dimex.NewDIMEX(
+		dmx := dimex.NewDimex(
 			addresses,
 			i,
 			dimexOpts...,
@@ -51,7 +51,7 @@ func main() {
 // worker simulates the flow of an application that uses the DIMEX module
 // this code was provided as part of the skeleton implementation of the DIMEX module
 // and was slightly modified to work with the new implementation
-func worker(dmx *dimex.DIMEX_Module) {
+func worker(dmx *dimex.Dimex) {
 	// open file that all processes should write to
 	file, err := os.OpenFile("./mxOUT.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
