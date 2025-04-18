@@ -18,7 +18,7 @@ type Snapshot struct {
 	LocalClock      int
 	ReqTs           int
 	NbrResps        int
-	InterceptedMsgs []pp2plink.PP2PLink_Ind_Message
+	InterceptedMsgs []pp2plink.IndMsg
 
 	CollectedResps int `json:"-"`
 }

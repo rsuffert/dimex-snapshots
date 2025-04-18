@@ -249,7 +249,7 @@ upon event [ pl, Deliver | p, [ respOk, r ] ]
 	então trigger [ dmx, Deliver | free2Access ]
 		estado := estouNaSC
 */
-func (d *Dimex) handleUponDeliverRespOk(msgOutro pp2plink.PP2PLink_Ind_Message) {
+func (d *Dimex) handleUponDeliverRespOk(msgOutro pp2plink.IndMsg) {
 	d.nbrResps++
 
 	if d.fail {
@@ -275,7 +275,7 @@ upon event [ pl, Deliver | p, [ reqEntry, r, rts ]  do
 		então  postergados := postergados + [p, r ]
 		lts.ts := max(lts.ts, rts.ts)
 */
-func (d *Dimex) handleUponDeliverReqEntry(msgOutro pp2plink.PP2PLink_Ind_Message) {
+func (d *Dimex) handleUponDeliverReqEntry(msgOutro pp2plink.IndMsg) {
 	parts := strings.Split(msgOutro.Message, ";")
 	otherId, _ := strconv.Atoi(parts[1])
 	otherReqTs, _ := strconv.Atoi(parts[2])
@@ -293,7 +293,7 @@ func (d *Dimex) handleUponDeliverReqEntry(msgOutro pp2plink.PP2PLink_Ind_Message
 	d.lcl = max(d.lcl, otherReqTs)
 }
 
-func (m *Dimex) handleIncomingSnap(msg pp2plink.PP2PLink_Ind_Message) {
+func (m *Dimex) handleIncomingSnap(msg pp2plink.IndMsg) {
 	parts := strings.Split(msg.Message, ";")
 	snapId, _ := strconv.Atoi(parts[1])
 
@@ -320,7 +320,7 @@ func (m *Dimex) handleIncomingSnap(msg pp2plink.PP2PLink_Ind_Message) {
 
 func (d *Dimex) sendToLink(address string, content string, space string) {
 	d.outDbg(space + " ---->>>>   to: " + address + "     msg: " + content)
-	d.Pp2plink.Req <- pp2plink.PP2PLink_Req_Message{
+	d.Pp2plink.Req <- pp2plink.ReqMsg{
 		To:      address,
 		Message: content}
 }
@@ -353,7 +353,7 @@ func (m *Dimex) takeSnapshot(snapId int) {
 		LocalClock:      m.lcl,
 		ReqTs:           m.reqTs,
 		NbrResps:        m.nbrResps,
-		InterceptedMsgs: make([]pp2plink.PP2PLink_Ind_Message, 0),
+		InterceptedMsgs: make([]pp2plink.IndMsg, 0),
 	}
 
 	for i, addr := range m.addresses {
@@ -369,7 +369,7 @@ func (m *Dimex) takeSnapshot(snapId int) {
 	}
 }
 
-func (m *Dimex) messagesMiddleware(msg pp2plink.PP2PLink_Ind_Message) pp2plink.PP2PLink_Ind_Message {
+func (m *Dimex) messagesMiddleware(msg pp2plink.IndMsg) pp2plink.IndMsg {
 	if strings.Contains(msg.Message, SNAP) {
 		logrus.Debugf("\tP%d: received SNAP from %s\n", m.id, msg.From)
 		return msg
