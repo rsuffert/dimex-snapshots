@@ -24,7 +24,12 @@ func main() {
 	addresses := flag.Args()
 
 	for i := range addresses {
-		dmx := DIMEX.NewDIMEX(addresses, i, false)
+		dmx := DIMEX.NewDIMEX(
+			addresses,
+			i,
+			false,
+			//DIMEX.WithFailOpt(), // uncomment to enable failure simulation in DiMEx and trigger snapshots invariants violations
+		)
 		go worker(dmx)
 	}
 
