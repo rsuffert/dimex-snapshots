@@ -53,13 +53,13 @@ func NewPP2PLink(_address string, _dbg bool) *PP2PLink {
 	return p2p
 }
 
-func (p *PP2PLink) outDbg(s string) {
-	if p.dbg {
+func (m *PP2PLink) outDbg(s string) {
+	if m.dbg {
 		fmt.Println(". . . . . . . . . . . . . . . . . [ PP2PLink msg : " + s + " ]")
 	}
 }
 
-func (p *PP2PLink) Start(address string) {
+func (m *PP2PLink) Start(address string) {
 
 	// PROCESSO PARA RECEBIMENTO DE MENSAGENS
 	go func() {
@@ -67,7 +67,7 @@ func (p *PP2PLink) Start(address string) {
 		for {
 			// aceita repetidamente tentativas novas de conexao
 			conn, err := listen.Accept()
-			p.outDbg("ok   : conexao aceita com outro processo.")
+			m.outDbg("ok   : conexao aceita com outro processo.")
 			// para cada conexao lanca rotina de tratamento
 			go func() {
 				// repetidamente recebe mensagens na conexao TCP (sem fechar)
@@ -80,7 +80,7 @@ func (p *PP2PLink) Start(address string) {
 					bufTam := make([]byte, 4) //       // le tamanho da mensagem
 					_, err := io.ReadFull(conn, bufTam)
 					if err != nil {
-						p.outDbg("erro : " + err.Error() + " conexao fechada pelo outro processo.")
+						m.outDbg("erro : " + err.Error() + " conexao fechada pelo outro processo.")
 						break
 					}
 					tam, _ := strconv.Atoi(string(bufTam))
@@ -94,7 +94,7 @@ func (p *PP2PLink) Start(address string) {
 						From:    conn.RemoteAddr().String(),
 						Message: string(bufMsg)}
 					// ATE AQUI:  procedimentos para receber msg
-					p.Ind <- msg //               // repassa mensagem para modulo superior
+					m.Ind <- msg //               // repassa mensagem para modulo superior
 				}
 			}()
 		}
@@ -103,27 +103,27 @@ func (p *PP2PLink) Start(address string) {
 	// PROCESSO PARA ENVIO DE MENSAGENS
 	go func() {
 		for {
-			message := <-p.Req
-			p.Send(message)
+			message := <-m.Req
+			m.Send(message)
 		}
 	}()
 }
 
-func (p *PP2PLink) Send(message ReqMsg) {
+func (m *PP2PLink) Send(message ReqMsg) {
 	var conn net.Conn
 	var ok bool
 	var err error
 
 	// ja existe uma conexao aberta para aquele destinatario?
-	if conn, ok = p.Cache[message.To]; ok {
+	if conn, ok = m.Cache[message.To]; ok {
 	} else { // se nao existe, abre e guarda na cache
 		conn, err = net.Dial("tcp", message.To)
-		p.outDbg("ok   : conexao iniciada com outro processo")
+		m.outDbg("ok   : conexao iniciada com outro processo")
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		p.Cache[message.To] = conn
+		m.Cache[message.To] = conn
 	}
 	// calcula tamanho da mensagem e monta string de 4 caracteres numericos com o tamanho.
 	// completa com 0s aa esquerda para fechar tamanho se necessario.
@@ -132,21 +132,21 @@ func (p *PP2PLink) Send(message ReqMsg) {
 		str = "0" + str
 	}
 	if !(len(str) == 4) {
-		p.outDbg("ERROR AT PPLINK MESSAGE SIZE CALCULATION - INVALID MESSAGES MAY BE IN TRANSIT")
+		m.outDbg("ERROR AT PPLINK MESSAGE SIZE CALCULATION - INVALID MESSAGES MAY BE IN TRANSIT")
 	}
 	payload := append([]byte(str), []byte(message.Message)...) // escreve 4 caracteres com tamanho da mensagem e a mensagem
 	_, err = conn.Write(payload)
 	if err != nil {
-		p.outDbg("erro : " + err.Error() + ". Conexao fechada. 1 tentativa de reabrir:")
+		m.outDbg("erro : " + err.Error() + ". Conexao fechada. 1 tentativa de reabrir:")
 		conn, err = net.Dial("tcp", message.To)
 		if err != nil {
 			//fmt.Println(err)
-			p.outDbg("       " + err.Error())
+			m.outDbg("       " + err.Error())
 			return
 		} else {
-			p.outDbg("ok   : conexao iniciada com outro processo.")
+			m.outDbg("ok   : conexao iniciada com outro processo.")
 		}
-		p.Cache[message.To] = conn
+		m.Cache[message.To] = conn
 		conn.Write(payload)
 	}
 }

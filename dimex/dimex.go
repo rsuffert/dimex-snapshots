@@ -80,8 +80,8 @@ type Dimex struct {
 // WithFailOpt is an option to enable failure simulation for the DIMEX module
 // and trigger snapshot invariant violations.
 func WithFailOpt() Opt {
-	return func(d *Dimex) {
-		d.fail = true
+	return func(m *Dimex) {
+		m.fail = true
 	}
 }
 
@@ -122,34 +122,34 @@ func NewDimex(_addresses []string, _id int, opts ...Opt) *Dimex {
 // ------- nucleo do funcionamento
 // ------------------------------------------------------------------------------------
 
-func (d *Dimex) Start() {
+func (m *Dimex) Start() {
 	go func() {
 		for {
 			select {
-			case dmxR := <-d.Req: // vindo da  aplicação
+			case dmxR := <-m.Req: // vindo da  aplicação
 				if dmxR == ENTER {
-					d.outDbg("app pede mx")
-					d.handleUponReqEntry()
+					m.outDbg("app pede mx")
+					m.handleUponReqEntry()
 
 				} else if dmxR == EXIT {
-					d.outDbg("app libera mx")
-					d.handleUponReqExit()
+					m.outDbg("app libera mx")
+					m.handleUponReqExit()
 				}
-			case msgOutro := <-d.Pp2plink.Ind: // vindo de outro processo
+			case msgOutro := <-m.Pp2plink.Ind: // vindo de outro processo
 				if strings.Contains(msgOutro.Message, SNAP) {
-					d.outDbg("         <<<---- snap!")
-					d.handleIncomingSnap(
-						d.messagesMiddleware(msgOutro),
+					m.outDbg("         <<<---- snap!")
+					m.handleIncomingSnap(
+						m.messagesMiddleware(msgOutro),
 					)
 				} else if strings.Contains(msgOutro.Message, RESP_OK) {
-					d.outDbg("         <<<---- responde! " + msgOutro.Message)
-					d.handleUponDeliverRespOk(
-						d.messagesMiddleware(msgOutro),
+					m.outDbg("         <<<---- responde! " + msgOutro.Message)
+					m.handleUponDeliverRespOk(
+						m.messagesMiddleware(msgOutro),
 					)
 				} else if strings.Contains(msgOutro.Message, REQ_ENTRY) {
-					d.outDbg("          <<<---- pede??  " + msgOutro.Message)
-					d.handleUponDeliverReqEntry(
-						d.messagesMiddleware(msgOutro),
+					m.outDbg("          <<<---- pede??  " + msgOutro.Message)
+					m.handleUponDeliverReqEntry(
+						m.messagesMiddleware(msgOutro),
 					)
 				}
 			}
@@ -161,21 +161,21 @@ func (d *Dimex) Start() {
 		ticker := time.NewTicker(time.Duration(snapshotIntervalSec) * time.Second)
 		defer ticker.Stop()
 		for t := range ticker.C {
-			turn := (t.Unix() / int64(snapshotIntervalSec)) % int64(len(d.addresses))
-			if int(turn) != d.id {
+			turn := (t.Unix() / int64(snapshotIntervalSec)) % int64(len(m.addresses))
+			if int(turn) != m.id {
 				continue
 			}
 
-			logrus.Infof("=========== P%d initiating a snapshot ===========\n", d.id)
+			logrus.Infof("=========== P%d initiating a snapshot ===========\n", m.id)
 			snapId := 0
-			if d.lastSnapshot != nil {
-				snapId = d.lastSnapshot.ID + 1
+			if m.lastSnapshot != nil {
+				snapId = m.lastSnapshot.ID + 1
 			}
 			// send a snapshot message to myself
-			d.sendToLink(
-				d.addresses[d.id],
+			m.sendToLink(
+				m.addresses[m.id],
 				fmt.Sprintf("%s;%d", SNAP, snapId),
-				fmt.Sprintf("PID %d", d.id),
+				fmt.Sprintf("PID %d", m.id),
 			)
 		}
 	}()
@@ -197,20 +197,20 @@ upon event [ dmx, Entry  |  r ]  do
 		trigger [ pl , Send | [ reqEntry, r, myTs ]
 	estado := queroSC
 */
-func (d *Dimex) handleUponReqEntry() {
-	d.lcl++
-	d.reqTs = d.lcl
-	d.nbrResps = 0
-	for i := 0; i < len(d.addresses); i++ {
-		if i != d.id {
-			d.sendToLink(
-				d.addresses[i],
-				fmt.Sprintf("%s;%d;%d", REQ_ENTRY, d.id, d.reqTs),
-				fmt.Sprintf("PID %d", d.id),
+func (m *Dimex) handleUponReqEntry() {
+	m.lcl++
+	m.reqTs = m.lcl
+	m.nbrResps = 0
+	for i := 0; i < len(m.addresses); i++ {
+		if i != m.id {
+			m.sendToLink(
+				m.addresses[i],
+				fmt.Sprintf("%s;%d;%d", REQ_ENTRY, m.id, m.reqTs),
+				fmt.Sprintf("PID %d", m.id),
 			)
 		}
 	}
-	d.st = common.WantMX
+	m.st = common.WantMX
 }
 
 /*
@@ -221,18 +221,18 @@ upon event [ dmx, Exit  |  r  ]  do
 	estado := naoQueroSC
 	waiting := {}
 */
-func (d *Dimex) handleUponReqExit() {
-	for i := 0; i < len(d.waiting); i++ {
-		if d.waiting[i] && i != d.id {
-			d.sendToLink(
-				d.addresses[i],
-				fmt.Sprintf("%s;%d", RESP_OK, d.id),
-				fmt.Sprintf("PID %d", d.id),
+func (m *Dimex) handleUponReqExit() {
+	for i := 0; i < len(m.waiting); i++ {
+		if m.waiting[i] && i != m.id {
+			m.sendToLink(
+				m.addresses[i],
+				fmt.Sprintf("%s;%d", RESP_OK, m.id),
+				fmt.Sprintf("PID %d", m.id),
 			)
 		}
 	}
-	d.st = common.NoMX
-	d.waiting = make([]bool, len(d.addresses))
+	m.st = common.NoMX
+	m.waiting = make([]bool, len(m.addresses))
 }
 
 // ------------------------------------------------------------------------------------
@@ -249,17 +249,17 @@ upon event [ pl, Deliver | p, [ respOk, r ] ]
 	então trigger [ dmx, Deliver | free2Access ]
 		estado := estouNaSC
 */
-func (d *Dimex) handleUponDeliverRespOk(msgOutro pp2plink.IndMsg) {
-	d.nbrResps++
+func (m *Dimex) handleUponDeliverRespOk(msgOutro pp2plink.IndMsg) {
+	m.nbrResps++
 
-	if d.fail {
+	if m.fail {
 		// simulate a failure by counting the response twice
-		d.nbrResps++
+		m.nbrResps++
 	}
 
-	if d.nbrResps == len(d.addresses)-1 {
-		d.st = common.InMX
-		d.Ind <- dmxResp{}
+	if m.nbrResps == len(m.addresses)-1 {
+		m.st = common.InMX
+		m.Ind <- dmxResp{}
 	}
 }
 
@@ -275,22 +275,22 @@ upon event [ pl, Deliver | p, [ reqEntry, r, rts ]  do
 		então  postergados := postergados + [p, r ]
 		lts.ts := max(lts.ts, rts.ts)
 */
-func (d *Dimex) handleUponDeliverReqEntry(msgOutro pp2plink.IndMsg) {
+func (m *Dimex) handleUponDeliverReqEntry(msgOutro pp2plink.IndMsg) {
 	parts := strings.Split(msgOutro.Message, ";")
 	otherId, _ := strconv.Atoi(parts[1])
 	otherReqTs, _ := strconv.Atoi(parts[2])
 
-	if d.st == common.NoMX || (d.st == common.WantMX && after(d.reqTs, d.id, otherReqTs, otherId)) {
-		d.sendToLink(
-			d.addresses[otherId],
-			fmt.Sprintf("%s;%d", RESP_OK, d.id),
-			fmt.Sprintf("PID %d", d.id),
+	if m.st == common.NoMX || (m.st == common.WantMX && after(m.reqTs, m.id, otherReqTs, otherId)) {
+		m.sendToLink(
+			m.addresses[otherId],
+			fmt.Sprintf("%s;%d", RESP_OK, m.id),
+			fmt.Sprintf("PID %d", m.id),
 		)
 	} else {
-		d.waiting[otherId] = true
+		m.waiting[otherId] = true
 	}
 
-	d.lcl = max(d.lcl, otherReqTs)
+	m.lcl = max(m.lcl, otherReqTs)
 }
 
 func (m *Dimex) handleIncomingSnap(msg pp2plink.IndMsg) {
@@ -307,7 +307,7 @@ func (m *Dimex) handleIncomingSnap(msg pp2plink.IndMsg) {
 
 	snapshotOver := m.lastSnapshot.CollectedResps == (len(m.addresses) - 1)
 	if snapshotOver {
-		logrus.Debugf("\t\tP%d: snapshot %d completed. Dumping to file...\n", m.id, snapId)
+		logrus.Debugf("\t\tP%d: snapshot %d completem. Dumping to file...\n", m.id, snapId)
 		if err := m.lastSnapshot.DumpToFile(); err != nil {
 			logrus.Errorf("P%d: error dumping snapshot %d to file: %v\n", m.id, snapId, err)
 		}
@@ -318,9 +318,9 @@ func (m *Dimex) handleIncomingSnap(msg pp2plink.IndMsg) {
 // ------- funcoes de ajuda
 // ------------------------------------------------------------------------------------
 
-func (d *Dimex) sendToLink(address string, content string, space string) {
-	d.outDbg(space + " ---->>>>   to: " + address + "     msg: " + content)
-	d.Pp2plink.Req <- pp2plink.ReqMsg{
+func (m *Dimex) sendToLink(address string, content string, space string) {
+	m.outDbg(space + " ---->>>>   to: " + address + "     msg: " + content)
+	m.Pp2plink.Req <- pp2plink.ReqMsg{
 		To:      address,
 		Message: content}
 }
@@ -336,8 +336,8 @@ func max(one, oth int) int {
 	return oth
 }
 
-func (d *Dimex) outDbg(s string) {
-	if d.dbg {
+func (m *Dimex) outDbg(s string) {
+	if m.dbg {
 		fmt.Println(". . . . . . . . . . . . [ DIMEX : " + s + " ]")
 	}
 }
