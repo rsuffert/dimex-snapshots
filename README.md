@@ -23,14 +23,14 @@ Each `<ip-address:port>` pair is the address of a process of the system. The `-v
 ├── common
 │   ├── slices.go            # common operations with slices (not part of stdlib)
 │   └── states.go            # the possible states of a process in the access to the CS
-├── DIMEX
-│   └── DIMEX-Template.go    # distributed mutual exclusion implementation (and snapshots)
+├── dimex
+│   └── dimex.go             # distributed mutual exclusion implementation (and snapshots)
 ├── go.mod
 ├── go.sum
 ├── main.go                  # entrypoint for the application
 ├── Makefile
-├── PP2PLink
-│   └── PP2PLink.go          # implementation of a perfect point to point link for the processes to communicate
+├── pp2plink
+│   └── pp2plink.go          # implementation of a perfect point to point link for the processes to communicate
 ├── README.md
 └── snapshots
     ├── invariants.go        # implementation of snapshot invariants to be checked

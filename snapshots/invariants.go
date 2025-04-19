@@ -1,8 +1,8 @@
 package snapshots
 
 import (
-	"SD/common"
 	"fmt"
+	"pucrs/sd/common"
 )
 
 // invariantCheckerFunc is a function type that checks invariants on a set of snapshots.
