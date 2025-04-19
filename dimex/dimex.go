@@ -307,7 +307,7 @@ func (m *Dimex) handleIncomingSnap(msg pp2plink.IndMsg) {
 
 	snapshotOver := m.lastSnapshot.CollectedResps == (len(m.addresses) - 1)
 	if snapshotOver {
-		logrus.Debugf("\t\tP%d: snapshot %d completem. Dumping to file...\n", m.id, snapId)
+		logrus.Debugf("\t\tP%d: snapshot %d completed. Dumping to file...\n", m.id, snapId)
 		if err := m.lastSnapshot.DumpToFile(); err != nil {
 			logrus.Errorf("P%d: error dumping snapshot %d to file: %v\n", m.id, snapId, err)
 		}
