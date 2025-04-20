@@ -14,14 +14,18 @@ import (
 )
 
 const (
-	BOLD_GREEN = "\033[1;32m"
-	BOLD_RED   = "\033[1;31m"
-	RESET      = "\033[0m"
+	BOLD_GREEN   = "\033[1;32m"
+	BOLD_RED     = "\033[1;31m"
+	BOLD_REGULAR = "\033[1m"
+	RESET        = "\033[0m"
+)
+
+var (
+	verboseMode = flag.Bool("v", false, "Enable verbose (debug) logging for snapshots")
+	failureMode = flag.Bool("f", false, "Enable failure simulation in the DiMEx module")
 )
 
 func main() {
-	verboseMode := flag.Bool("v", false, "Enable verbose (debug) logging for snapshots")
-	failureMode := flag.Bool("f", false, "Enable failure simulation in the DiMEx module")
 	flag.Parse()
 
 	if len(flag.Args()) < 2 {
@@ -37,11 +41,16 @@ func main() {
 
 	dimexOpts := make([]dimex.Opt, 0)
 	if *failureMode {
-		logrus.Warnf("Enabling failure simulation in the DiMEx module")
+		logrus.Warnf(
+			"%sEnabling failure simulation in the DiMEx module. YOU WILL LIKELY SEE SNAPSHOT INVARIANTS VIOLATIONS!%s",
+			BOLD_REGULAR,
+			RESET,
+		)
 		dimexOpts = append(dimexOpts, dimex.WithFailOpt())
 	}
 
 	addresses := flag.Args()
+	logrus.Infof("Starting DiMEx simulation with %d processes...", len(addresses))
 	for i := range addresses {
 		dmx := dimex.NewDimex(
 			addresses,
@@ -100,9 +109,8 @@ func terminate() {
 
 	sig := <-sigChan // blocks until one of the signals above is received
 
-	logrus.Infof("Received '%s' signal. Executing termination routine...\n", sig)
+	logrus.Infof("Received '%s' signal. Executing termination routine...", sig)
 
-	logrus.Infof("Instantiating a parser to verify the snapshots...")
 	snapsParser := snapshots.NewParser()
 	if err := snapsParser.Init(); err != nil {
 		logrus.Errorf("Failed to Init parser: %v", err)
@@ -111,9 +119,18 @@ func terminate() {
 	defer snapsParser.Close()
 
 	logrus.Infof("Parsing and verifying snapshots...")
+
+	if *failureMode {
+		logrus.Warnf(
+			"%sFailure simulation is enabled in the DiMEx module. YOU WILL LIKELY SEE INCONSISTENCIES IN THE SNAPSHOTS!%s",
+			BOLD_REGULAR,
+			RESET,
+		)
+	}
+
 	if err := snapsParser.ParseVerify(); err != nil {
-		logrus.Infof("%sInconsistency detected in snapshots: %v%s\n", BOLD_RED, err, RESET)
+		logrus.Infof("%sInconsistency detected in snapshots: %v%s", BOLD_RED, err, RESET)
 		os.Exit(1)
 	}
-	logrus.Infof("%sNo inconsistencies detected in snapshots!%s\n", BOLD_GREEN, RESET)
+	logrus.Infof("%sNo inconsistencies detected in snapshots!%s", BOLD_GREEN, RESET)
 }
