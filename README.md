@@ -12,7 +12,7 @@ The program has a `Makefile` for easier execution. To run the application with t
 make ARGS="[-v] [-f] <ip-address:port> <ip-address:port> [<ip-address:port>...]" 
 ```
 
-Each `<ip-address:port>` pair is the address of a process of the system. The `-v` flag is optionally supplied for enabling verbose logging. The `-f` flag is optionally supplied for enabling failure simulation in the DiMEx module and trigger snapshot invariant violations.
+Each `<ip-address:port>` pair is the address of a process of the system. The `-v` flag is optionally supplied for enabling verbose logging. The `-f` flag is optionally supplied for enabling failure simulation in the DiMEx module, making processes send duplicate `RESP_OK` to `REQ_ENTRY` messages, which should eventually make a process enter the critical section while other is delaying its consent and trigger snapshot invariants violations.
 
 **NOTE**: To avoid retaining snapshots from previous executions in the files, prefer running the program using `make`, as the default recipe will run `make clean` to remove those output files and only then run `make run`.
 
