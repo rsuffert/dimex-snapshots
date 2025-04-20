@@ -252,11 +252,6 @@ upon event [ pl, Deliver | p, [ respOk, r ] ]
 func (m *Dimex) handleUponDeliverRespOk(msgOutro pp2plink.IndMsg) {
 	m.nbrResps++
 
-	if m.fail {
-		// simulate a failure by counting the response twice
-		m.nbrResps++
-	}
-
 	if m.nbrResps == len(m.addresses)-1 {
 		m.st = common.InMX
 		m.Ind <- dmxResp{}
@@ -286,6 +281,15 @@ func (m *Dimex) handleUponDeliverReqEntry(msgOutro pp2plink.IndMsg) {
 			fmt.Sprintf("%s;%d", RESP_OK, m.id),
 			fmt.Sprintf("PID %d", m.id),
 		)
+
+		if m.fail {
+			// simulate process failure by sending duplicate RESP_OK to trigger snapshot invariant check failures
+			m.sendToLink(
+				m.addresses[otherId],
+				fmt.Sprintf("%s;%d", RESP_OK, m.id),
+				fmt.Sprintf("PID %d", m.id),
+			)
+		}
 	} else {
 		m.waiting[otherId] = true
 	}
