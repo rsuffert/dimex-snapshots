@@ -13,6 +13,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	BOLD_GREEN = "\033[1;32m"
+	BOLD_RED   = "\033[1;31m"
+	RESET      = "\033[0m"
+)
+
 func main() {
 	verboseMode := flag.Bool("v", false, "Enable verbose (debug) logging for snapshots")
 	failureMode := flag.Bool("f", false, "Enable failure simulation in the DiMEx module")
@@ -94,12 +100,10 @@ func terminate() {
 
 	sig := <-sigChan // blocks until one of the signals above is received
 
-	logrus.Infof("Received '%s' signal. Exiting...\n\n", sig)
+	logrus.Infof("Received '%s' signal. Executing termination routine...\n", sig)
 
 	logrus.Infof("Instantiating a parser to verify the snapshots...")
-
 	snapsParser := snapshots.NewParser()
-
 	if err := snapsParser.Init(); err != nil {
 		logrus.Errorf("Failed to Init parser: %v", err)
 		os.Exit(1)
@@ -108,8 +112,8 @@ func terminate() {
 
 	logrus.Infof("Parsing and verifying snapshots...")
 	if err := snapsParser.ParseVerify(); err != nil {
-		logrus.Infof("Inconsistency detected in snapshots: %v", err)
+		logrus.Infof("%sInconsistency detected in snapshots: %v%s\n", BOLD_RED, err, RESET)
 		os.Exit(1)
 	}
-	logrus.Infof("No inconsistencies detected in snapshots!")
+	logrus.Infof("%sNo inconsistencies detected in snapshots!%s\n", BOLD_GREEN, RESET)
 }
