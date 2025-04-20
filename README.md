@@ -6,15 +6,29 @@ This project has been developed as the first assignment for the Distributed Syst
 
 ## Usage
 
-The program has a `Makefile` for easier execution. To run the application with the default arguments (verbosity logging enabled, failure simulation disabled, and 3 processes), simply run `make` at the root of the project. The default configurations can be overwritten with:
+### Using `make` to run the program
+
+The program has a `Makefile` for easier execution. To run the application with the default command (using the pre-defined command-line arguments), **simply run `make` at the root of the project**. The pre-defined command-line arguments can be overwritten with:
 
 ```bash
-make ARGS="[-v] [-f] <ip-address:port> <ip-address:port> [<ip-address:port>...]" 
+make ARGS="[-v] [-f] [-s <seconds>] <ip-address:port> <ip-address:port> [<ip-address:port>...]" 
 ```
 
-Each `<ip-address:port>` pair is the address of a process of the system. The `-v` flag is optionally supplied for enabling verbose logging. The `-f` flag is optionally supplied for enabling failure simulation in the DiMEx module, making processes send duplicate `RESP_OK` to `REQ_ENTRY` messages, which should eventually make a process enter the critical section while other is delaying its consent and trigger snapshot invariants violations.
+Each `<ip-address:port>` pair is the address of a process of the system.
 
 **NOTE**: To avoid retaining snapshots from previous executions in the files, prefer running the program using `make`, as the default recipe will run `make clean` to remove those output files and only then run `make run`.
+
+### Optional flags
+
+The command-line flags in the below table are supported to customize the execution.
+
+| Flag           | Type      | Meaning                                               | Default value (if flag not specified) |
+|--------------- |-----------|-------------------------------------------------------|---------------------------------------|
+| `-v`           | `bool`    | Enable verbose logging                                | False                                 |
+| `-f`           | `bool`    | Enable failure simulation in the DiMEx module         | False                                 |
+| `-s <seconds>` | `float64` | Interval in which snapshots will be taken, in seconds | 0.5                                   |
+
+**NOTE**: When setting your interval for taking snapshots, keep in mind that the system only supports one snapshot being taken at a time. Therefore, your interval should be large enough so that all processes that you're using have time to take their snapshots, flood the snapshot message, and dump their snapshots to their file when the responses are received.
 
 ## Structure
 

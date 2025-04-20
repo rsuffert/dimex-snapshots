@@ -23,6 +23,7 @@ const (
 var (
 	verboseMode = flag.Bool("v", false, "Enable verbose (debug) logging for snapshots")
 	failureMode = flag.Bool("f", false, "Enable failure simulation in the DiMEx module")
+	snapshotSec = flag.Float64("s", 0.5, "Interval in which snapshots are taken (in seconds)")
 )
 
 func main() {
@@ -40,6 +41,7 @@ func main() {
 	logrus.SetLevel(loggingLevel)
 
 	dimexOpts := make([]dimex.Opt, 0)
+	dimexOpts = append(dimexOpts, dimex.WithSnapshotIntervalOpt(*snapshotSec))
 	if *failureMode {
 		logrus.Warnf(
 			"%sEnabling failure simulation in the DiMEx module. YOU WILL LIKELY SEE SNAPSHOT INVARIANTS VIOLATIONS!%s",
@@ -50,7 +52,11 @@ func main() {
 	}
 
 	addresses := flag.Args()
-	logrus.Infof("Starting DiMEx simulation with %d processes...", len(addresses))
+	logrus.Infof(
+		"Starting DiMEx simulation with %d processes (with snapshots taken every %f seconds)...",
+		len(addresses),
+		*snapshotSec,
+	)
 	for i := range addresses {
 		dmx := dimex.NewDimex(
 			addresses,

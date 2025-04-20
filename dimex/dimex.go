@@ -31,8 +31,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const snapshotIntervalSec int = 1
-
 // ------------------------------------------------------------------------------------
 // ------- principais tipos
 // ------------------------------------------------------------------------------------
@@ -56,17 +54,18 @@ type dmxResp struct { // mensagem do módulo DIMEX infrmando que pode acessar - 
 type Opt func(*Dimex)
 
 type Dimex struct {
-	Req       chan dmxReq  // canal para receber pedidos da aplicacao (REQ e EXIT)
-	Ind       chan dmxResp // canal para informar aplicacao que pode acessar
-	addresses []string     // endereco de todos, na mesma ordem
-	id        int          // identificador do processo - é o indice no array de enderecos acima
-	st        common.State // estado deste processo na exclusao mutua distribuida
-	waiting   []bool       // processos aguardando tem flag true
-	lcl       int          // relogio logico local
-	reqTs     int          // timestamp local da ultima requisicao deste processo
-	nbrResps  int
-	dbg       bool
-	fail      bool // flag to simulate failures and trigger snapshot invariant violations
+	Req                 chan dmxReq  // canal para receber pedidos da aplicacao (REQ e EXIT)
+	Ind                 chan dmxResp // canal para informar aplicacao que pode acessar
+	addresses           []string     // endereco de todos, na mesma ordem
+	id                  int          // identificador do processo - é o indice no array de enderecos acima
+	st                  common.State // estado deste processo na exclusao mutua distribuida
+	waiting             []bool       // processos aguardando tem flag true
+	lcl                 int          // relogio logico local
+	reqTs               int          // timestamp local da ultima requisicao deste processo
+	nbrResps            int
+	dbg                 bool
+	fail                bool // flag to simulate failures and trigger snapshot invariant violations
+	snapshotIntervalSec float64
 
 	Pp2plink *pp2plink.PP2PLink // acesso aa comunicacao enviar por PP2PLinq.Req  e receber por PP2PLinq.Ind
 
@@ -85,6 +84,14 @@ func WithFailOpt() Opt {
 	}
 }
 
+// WithSnapshotIntervalOpt is an option to set the snapshot interval for the DIMEX module.
+// The interval is specified in seconds.
+func WithSnapshotIntervalOpt(intervalSec float64) Opt {
+	return func(m *Dimex) {
+		m.snapshotIntervalSec = intervalSec
+	}
+}
+
 // ------------------------------------------------------------------------------------
 // ------- inicializacao
 // ------------------------------------------------------------------------------------
@@ -96,14 +103,15 @@ func NewDimex(_addresses []string, _id int, opts ...Opt) *Dimex {
 		Req: make(chan dmxReq, 1),
 		Ind: make(chan dmxResp, 1),
 
-		addresses: _addresses,
-		id:        _id,
-		st:        common.NoMX,
-		waiting:   make([]bool, len(_addresses)),
-		lcl:       0,
-		reqTs:     0,
-		dbg:       false,
-		fail:      false,
+		addresses:           _addresses,
+		id:                  _id,
+		st:                  common.NoMX,
+		waiting:             make([]bool, len(_addresses)),
+		lcl:                 0,
+		reqTs:               0,
+		dbg:                 false,
+		fail:                false,
+		snapshotIntervalSec: 1.0,
 
 		Pp2plink: p2p,
 	}
@@ -158,19 +166,19 @@ func (m *Dimex) Start() {
 
 	// every snapshotIntervalSec seconds, a process raises a snapshot
 	go func() {
-		ticker := time.NewTicker(time.Duration(snapshotIntervalSec) * time.Second)
+		ticker := time.NewTicker(time.Duration(m.snapshotIntervalSec * float64(time.Second)))
 		defer ticker.Stop()
 		for t := range ticker.C {
-			turn := (t.Unix() / int64(snapshotIntervalSec)) % int64(len(m.addresses))
+			turn := (t.UnixNano() / int64(m.snapshotIntervalSec*float64(time.Second))) % int64(len(m.addresses))
 			if int(turn) != m.id {
 				continue
 			}
 
-			logrus.Infof("=========== P%d initiating a snapshot ===========\n", m.id)
 			snapId := 0
 			if m.lastSnapshot != nil {
 				snapId = m.lastSnapshot.ID + 1
 			}
+			logrus.Infof("=========== P%d initiating a snapshot (SNAPID %d) ===========\n", m.id, snapId)
 			// send a snapshot message to myself
 			m.sendToLink(
 				m.addresses[m.id],
