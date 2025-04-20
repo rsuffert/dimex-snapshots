@@ -37,7 +37,7 @@ func main() {
 
 	dimexOpts := make([]dimex.Opt, 0)
 	if *failureMode {
-		logrus.Debug("Enabling failure simulation in the DiMEx module")
+		logrus.Warnf("Enabling failure simulation in the DiMEx module")
 		dimexOpts = append(dimexOpts, dimex.WithFailOpt())
 	}
 
