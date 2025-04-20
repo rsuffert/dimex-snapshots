@@ -9,5 +9,6 @@ all: clean run
 clean:
 	rm -rf $(CLEAN_FILES)
 
+# Trap the Ctrl + C interruption and exit cleanly
 run:
-	go run $(SRC) $(ARGS)
+	@trap 'exit 0' INT; go run $(SRC) $(ARGS)
