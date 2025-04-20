@@ -37,6 +37,9 @@ func NewParser() *Parser {
 
 // Init initializes the Parser instance.
 func (p *Parser) Init() error {
+	dumpFilesMu.RLock()
+	defer dumpFilesMu.RUnlock()
+
 	for dumpFile, pid := range dumpFiles {
 		file, err := os.Open(dumpFile)
 		if err != nil {

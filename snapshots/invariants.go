@@ -104,7 +104,7 @@ func checkOnlyInMXWithAllConsent(snapshots ...Snapshot) error {
 
 	for _, snapshot := range snapshots {
 		isInMX := snapshot.State == common.InMX
-		allCollectedResps := snapshot.NbrResps == (nProcesses - 1) // don't count itself
+		allCollectedResps := snapshot.NbrResps >= (nProcesses - 1) // don't count itself (>= needed for failure simulation)
 		if isInMX && !allCollectedResps {
 			return fmt.Errorf(
 				"checkOnlyInMXWithAllConsent: process %d is in MX but not all responses received (only %d)",

@@ -6,9 +6,13 @@ import (
 	"os"
 	"pucrs/sd/common"
 	"pucrs/sd/pp2plink"
+	"sync"
 )
 
-var dumpFiles = make(map[string]int)
+var (
+	dumpFiles   = make(map[string]int)
+	dumpFilesMu sync.RWMutex
+)
 
 type Snapshot struct {
 	ID              int
@@ -25,7 +29,10 @@ type Snapshot struct {
 
 func (s *Snapshot) DumpToFile() error {
 	path := fmt.Sprintf("snapshots-pid-%d.txt", s.PID)
+
+	dumpFilesMu.Lock()
 	dumpFiles[path] = s.PID // store the name of the file and the PID of the process for later parsing
+	dumpFilesMu.Unlock()
 
 	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
