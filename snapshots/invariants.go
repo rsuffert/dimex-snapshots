@@ -57,7 +57,7 @@ func checkWaitingImpliesWantOrInCS(snapshots ...Snapshot) error {
 }
 
 // checkIdleProcessesState verifies the state of a set of snapshots to ensure that, if all processes are idle,
-// then no process is delaying entry responses or has intercepted messages.
+// then no process is delaying entry responses or has messages in transit.
 //
 // Parameters:
 //
@@ -65,7 +65,7 @@ func checkWaitingImpliesWantOrInCS(snapshots ...Snapshot) error {
 //
 // Returns:
 //
-//	error - Returns an error if any process is delaying responses or has intercepted messages
+//	error - Returns an error if any process is delaying responses or has messages in transit
 //	        when all processes are idle. Returns nil otherwise.
 func checkIdleProcessesState(snapshots ...Snapshot) error {
 	allIdle := common.All(snapshots, func(s Snapshot) bool {
@@ -80,8 +80,8 @@ func checkIdleProcessesState(snapshots ...Snapshot) error {
 		if isDelayingResps {
 			return fmt.Errorf("checkIdleProcessesState: process %d is delaying responses, but all processes are idle", snapshot.PID)
 		}
-		if len(snapshot.InterceptedMsgs) > 0 {
-			return fmt.Errorf("checkIdleProcessesState: process %d has intercepted messages, but all processes are idle", snapshot.PID)
+		if snapshot.HasMessagesInTransit() {
+			return fmt.Errorf("checkIdleProcessesState: process %d has messages in transit, but all processes are idle", snapshot.PID)
 		}
 	}
 	return nil

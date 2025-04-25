@@ -182,7 +182,7 @@ func (m *Dimex) Start() {
 			// send a snapshot message to myself
 			m.sendToLink(
 				m.addresses[m.id],
-				fmt.Sprintf("%s;%d", SNAP, snapId),
+				fmt.Sprintf("%s;%d;%d", SNAP, m.id, snapId),
 				fmt.Sprintf("PID %d", m.id),
 			)
 		}
@@ -307,7 +307,8 @@ func (m *Dimex) handleUponDeliverReqEntry(msgOutro pp2plink.IndMsg) {
 
 func (m *Dimex) handleIncomingSnap(msg pp2plink.IndMsg) {
 	parts := strings.Split(msg.Message, ";")
-	snapId, _ := strconv.Atoi(parts[1])
+	senderId, _ := strconv.Atoi(parts[1])
+	snapId, _ := strconv.Atoi(parts[2])
 
 	takeSnapshot := m.lastSnapshot == nil || m.lastSnapshot.ID < snapId
 	if takeSnapshot {
@@ -315,13 +316,19 @@ func (m *Dimex) handleIncomingSnap(msg pp2plink.IndMsg) {
 		m.takeSnapshot(snapId)
 	}
 
-	m.lastSnapshot.CollectedResps++
+	// if I sent this snapshot to myself, I'm taking the initiative of taking a snapshot of the system
+	// in such case, I don't count that external request to trigger the snapshot as a response
+	if senderId != m.id {
+		m.lastSnapshot.CollectedResps++
+		logrus.Debugf("\t\tP%d: collected new SNAP resp from PID %d (total = %d)\n", m.id, senderId, m.lastSnapshot.CollectedResps)
+		m.lastSnapshot.CommunicationChans[senderId].IsOpen = false
+	}
 
 	snapshotOver := m.lastSnapshot.CollectedResps == (len(m.addresses) - 1)
 	if snapshotOver {
 		logrus.Debugf("\t\tP%d: snapshot %d completed. Dumping to file...\n", m.id, snapId)
 		if err := m.lastSnapshot.DumpToFile(); err != nil {
-			logrus.Errorf("P%d: error dumping snapshot %d to file: %v\n", m.id, snapId, err)
+			logrus.Errorf("\t\tP%d: error dumping snapshot %d to file: %v\n", m.id, snapId, err)
 		}
 	}
 }
@@ -357,16 +364,15 @@ func (m *Dimex) outDbg(s string) {
 func (m *Dimex) takeSnapshot(snapId int) {
 	waiting := make([]bool, len(m.waiting))
 	copy(waiting, m.waiting)
-	m.lastSnapshot = &snapshots.Snapshot{
-		ID:              snapId,
-		PID:             m.id,
-		State:           m.st,
-		Waiting:         waiting,
-		LocalClock:      m.lcl,
-		ReqTs:           m.reqTs,
-		NbrResps:        m.nbrResps,
-		InterceptedMsgs: make([]pp2plink.IndMsg, 0),
-	}
+	m.lastSnapshot = snapshots.NewSnapshot(snapshots.ProcessState{
+		ID:         snapId,
+		PID:        m.id,
+		State:      m.st,
+		Waiting:    waiting,
+		LocalClock: m.lcl,
+		ReqTs:      m.reqTs,
+		NbrResps:   m.nbrResps,
+	})
 
 	for i, addr := range m.addresses {
 		if i == m.id {
@@ -374,16 +380,19 @@ func (m *Dimex) takeSnapshot(snapId int) {
 		}
 		m.sendToLink(
 			addr,
-			fmt.Sprintf("%s;%d", SNAP, snapId),
+			fmt.Sprintf("%s;%d;%d", SNAP, m.id, snapId),
 			fmt.Sprintf("PID %d", m.id),
 		)
-		logrus.Debugf("P%d: sent SNAP to %s\n", m.id, addr)
+		logrus.Debugf("P%d: sent SNAP to %s (PID %d)\n", m.id, addr, i)
 	}
 }
 
 func (m *Dimex) messagesMiddleware(msg pp2plink.IndMsg) pp2plink.IndMsg {
+	parts := strings.Split(msg.Message, ";")
+	senderId, _ := strconv.Atoi(parts[1])
+
 	if strings.Contains(msg.Message, SNAP) {
-		logrus.Debugf("\tP%d: received SNAP from %s\n", m.id, msg.From)
+		logrus.Debugf("\tP%d: received SNAP from %s (PID %d)\n", m.id, msg.From, senderId)
 		return msg
 	}
 
@@ -391,7 +400,10 @@ func (m *Dimex) messagesMiddleware(msg pp2plink.IndMsg) pp2plink.IndMsg {
 		return msg
 	}
 
-	m.lastSnapshot.InterceptedMsgs = append(m.lastSnapshot.InterceptedMsgs, msg)
+	commChan := m.lastSnapshot.CommunicationChans[senderId]
+	if commChan.IsOpen {
+		commChan.Messages = append(commChan.Messages, msg)
+	}
 
 	return msg
 }
