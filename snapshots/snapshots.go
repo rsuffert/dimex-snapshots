@@ -14,17 +14,43 @@ var (
 	dumpFilesMu sync.RWMutex
 )
 
+type SnapshotState struct {
+	ID         int
+	PID        int
+	State      common.State
+	Waiting    []bool
+	LocalClock int
+	ReqTs      int
+	NbrResps   int
+}
+
 type Snapshot struct {
-	ID              int
-	PID             int
-	State           common.State
-	Waiting         []bool
-	LocalClock      int
-	ReqTs           int
-	NbrResps        int
+	ID         int
+	PID        int
+	State      common.State
+	Waiting    []bool
+	LocalClock int
+	ReqTs      int
+	NbrResps   int
+
 	InterceptedMsgs []pp2plink.IndMsg
 
 	CollectedResps int `json:"-"`
+}
+
+// NewSnapshot creates a new Snapshot instance with default parameters.
+func NewSnapshot(state SnapshotState) *Snapshot {
+	return &Snapshot{
+		ID:              state.ID,
+		PID:             state.PID,
+		State:           state.State,
+		Waiting:         state.Waiting,
+		LocalClock:      state.LocalClock,
+		ReqTs:           state.ReqTs,
+		NbrResps:        state.NbrResps,
+		InterceptedMsgs: make([]pp2plink.IndMsg, 0),
+		CollectedResps:  0,
+	}
 }
 
 func (s *Snapshot) DumpToFile() error {

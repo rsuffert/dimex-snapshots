@@ -368,16 +368,15 @@ func (m *Dimex) outDbg(s string) {
 func (m *Dimex) takeSnapshot(snapId int) {
 	waiting := make([]bool, len(m.waiting))
 	copy(waiting, m.waiting)
-	m.lastSnapshot = &snapshots.Snapshot{
-		ID:              snapId,
-		PID:             m.id,
-		State:           m.st,
-		Waiting:         waiting,
-		LocalClock:      m.lcl,
-		ReqTs:           m.reqTs,
-		NbrResps:        m.nbrResps,
-		InterceptedMsgs: make([]pp2plink.IndMsg, 0),
-	}
+	m.lastSnapshot = snapshots.NewSnapshot(snapshots.SnapshotState{
+		ID:         snapId,
+		PID:        m.id,
+		State:      m.st,
+		Waiting:    waiting,
+		LocalClock: m.lcl,
+		ReqTs:      m.reqTs,
+		NbrResps:   m.nbrResps,
+	})
 
 	for i, addr := range m.addresses {
 		if i == m.id {
