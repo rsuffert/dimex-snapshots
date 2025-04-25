@@ -182,7 +182,7 @@ func (m *Dimex) Start() {
 			// send a snapshot message to myself
 			m.sendToLink(
 				m.addresses[m.id],
-				fmt.Sprintf("%s;%d", SNAP, snapId),
+				fmt.Sprintf("%s;%d;%d", SNAP, m.id, snapId),
 				fmt.Sprintf("PID %d", m.id),
 			)
 		}
@@ -307,7 +307,7 @@ func (m *Dimex) handleUponDeliverReqEntry(msgOutro pp2plink.IndMsg) {
 
 func (m *Dimex) handleIncomingSnap(msg pp2plink.IndMsg) {
 	parts := strings.Split(msg.Message, ";")
-	snapId, _ := strconv.Atoi(parts[1])
+	snapId, _ := strconv.Atoi(parts[2])
 
 	takeSnapshot := m.lastSnapshot == nil || m.lastSnapshot.ID < snapId
 	if takeSnapshot {
@@ -374,16 +374,19 @@ func (m *Dimex) takeSnapshot(snapId int) {
 		}
 		m.sendToLink(
 			addr,
-			fmt.Sprintf("%s;%d", SNAP, snapId),
+			fmt.Sprintf("%s;%d;%d", SNAP, m.id, snapId),
 			fmt.Sprintf("PID %d", m.id),
 		)
-		logrus.Debugf("P%d: sent SNAP to %s\n", m.id, addr)
+		logrus.Debugf("P%d: sent SNAP to %s (PID %d)\n", m.id, addr, i)
 	}
 }
 
 func (m *Dimex) messagesMiddleware(msg pp2plink.IndMsg) pp2plink.IndMsg {
+	parts := strings.Split(msg.Message, ";")
+	senderId, _ := strconv.Atoi(parts[1])
+
 	if strings.Contains(msg.Message, SNAP) {
-		logrus.Debugf("\tP%d: received SNAP from %s\n", m.id, msg.From)
+		logrus.Debugf("\tP%d: received SNAP from %s (PID %d)\n", m.id, msg.From, senderId)
 		return msg
 	}
 
