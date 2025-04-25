@@ -53,6 +53,8 @@ type Snapshot struct {
 
 // NewSnapshot creates a new Snapshot instance.
 func NewSnapshot(state ProcessState) *Snapshot {
+	nProcesses := len(state.Waiting)
+
 	s := &Snapshot{
 		ID:                 state.ID,
 		PID:                state.PID,
@@ -61,11 +63,10 @@ func NewSnapshot(state ProcessState) *Snapshot {
 		LocalClock:         state.LocalClock,
 		ReqTs:              state.ReqTs,
 		NbrResps:           state.NbrResps,
-		CommunicationChans: make(map[int]*CommunicationChan),
+		CommunicationChans: make(map[int]*CommunicationChan, nProcesses),
 		CollectedResps:     0,
 	}
 
-	nProcesses := len(state.Waiting)
 	for i := 0; i < nProcesses; i++ {
 		s.CommunicationChans[i] = &CommunicationChan{
 			Messages: make([]pp2plink.IndMsg, 0),
