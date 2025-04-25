@@ -307,6 +307,7 @@ func (m *Dimex) handleUponDeliverReqEntry(msgOutro pp2plink.IndMsg) {
 
 func (m *Dimex) handleIncomingSnap(msg pp2plink.IndMsg) {
 	parts := strings.Split(msg.Message, ";")
+	senderId, _ := strconv.Atoi(parts[1])
 	snapId, _ := strconv.Atoi(parts[2])
 
 	takeSnapshot := m.lastSnapshot == nil || m.lastSnapshot.ID < snapId
@@ -315,13 +316,23 @@ func (m *Dimex) handleIncomingSnap(msg pp2plink.IndMsg) {
 		m.takeSnapshot(snapId)
 	}
 
-	m.lastSnapshot.CollectedResps++
+	// if I sent this snapshot to myself, I'm taking the initiative of taking a snapshot of the system
+	// in such case, I don't count that external request to trigger the snapshot as a response
+	if senderId != m.id {
+		m.lastSnapshot.CollectedResps++
+		logrus.Debugf(
+			"\t\tP%d: colleted new snapshot response from PID %d (total = %d)\n",
+			m.id,
+			senderId,
+			m.lastSnapshot.CollectedResps,
+		)
+	}
 
 	snapshotOver := m.lastSnapshot.CollectedResps == (len(m.addresses) - 1)
 	if snapshotOver {
 		logrus.Debugf("\t\tP%d: snapshot %d completed. Dumping to file...\n", m.id, snapId)
 		if err := m.lastSnapshot.DumpToFile(); err != nil {
-			logrus.Errorf("P%d: error dumping snapshot %d to file: %v\n", m.id, snapId, err)
+			logrus.Errorf("\t\tP%d: error dumping snapshot %d to file: %v\n", m.id, snapId, err)
 		}
 	}
 }
