@@ -320,12 +320,7 @@ func (m *Dimex) handleIncomingSnap(msg pp2plink.IndMsg) {
 	// in such case, I don't count that external request to trigger the snapshot as a response
 	if senderId != m.id {
 		m.lastSnapshot.CollectedResps++
-		logrus.Debugf(
-			"\t\tP%d: colleted new snapshot response from PID %d (total = %d)\n",
-			m.id,
-			senderId,
-			m.lastSnapshot.CollectedResps,
-		)
+		logrus.Debugf("\t\tP%d: collected new SNAP resp from PID %d (total = %d)\n", m.id, senderId, m.lastSnapshot.CollectedResps)
 		m.lastSnapshot.CommunicationChans[senderId].IsOpen = false
 	}
 
