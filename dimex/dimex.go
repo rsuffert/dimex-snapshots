@@ -369,7 +369,7 @@ func (m *Dimex) outDbg(s string) {
 func (m *Dimex) takeSnapshot(snapId int) {
 	waiting := make([]bool, len(m.waiting))
 	copy(waiting, m.waiting)
-	m.lastSnapshot = snapshots.NewSnapshot(snapshots.SnapshotState{
+	m.lastSnapshot = snapshots.NewSnapshot(snapshots.ProcessState{
 		ID:         snapId,
 		PID:        m.id,
 		State:      m.st,

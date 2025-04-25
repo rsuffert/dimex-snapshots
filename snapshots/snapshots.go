@@ -14,7 +14,9 @@ var (
 	dumpFilesMu sync.RWMutex
 )
 
-type SnapshotState struct {
+// ProcessState is a struct that represents the application-specific state of a process
+// for the snapshot.
+type ProcessState struct {
 	ID         int
 	PID        int
 	State      common.State
@@ -24,11 +26,15 @@ type SnapshotState struct {
 	NbrResps   int
 }
 
+// CommunicationChan is a struct that represents the abstraction of a communication
+// channel between two processes. It contains a slice of all messages sent through it
+// and a boolean indicating whether the channel is open or closed for sending new messages.
 type CommunicationChan struct {
 	Messages []pp2plink.IndMsg
 	IsOpen   bool
 }
 
+// Snapshot is a struct that represents a snapshot of a process in the system.
 type Snapshot struct {
 	ID         int
 	PID        int
@@ -45,8 +51,8 @@ type Snapshot struct {
 	CollectedResps int `json:"-"`
 }
 
-// NewSnapshot creates a new Snapshot instance with default parameters.
-func NewSnapshot(state SnapshotState) *Snapshot {
+// NewSnapshot creates a new Snapshot instance.
+func NewSnapshot(state ProcessState) *Snapshot {
 	s := &Snapshot{
 		ID:                 state.ID,
 		PID:                state.PID,
@@ -71,6 +77,7 @@ func NewSnapshot(state SnapshotState) *Snapshot {
 	return s
 }
 
+// DumpToFile appends the dump of the snapshot to a file in JSON format.
 func (s *Snapshot) DumpToFile() error {
 	path := fmt.Sprintf("snapshots-pid-%d.txt", s.PID)
 
@@ -96,6 +103,7 @@ func (s *Snapshot) DumpToFile() error {
 	return nil
 }
 
+// HasMessagesInTransit checks if there are any messages in transit in the snapshot.
 func (s *Snapshot) HasMessagesInTransit() bool {
 	for _, commChan := range s.CommunicationChans {
 		if len(commChan.Messages) > 0 {
