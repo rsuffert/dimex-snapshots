@@ -24,6 +24,11 @@ type SnapshotState struct {
 	NbrResps   int
 }
 
+type CommunicationChan struct {
+	Messages []pp2plink.IndMsg
+	IsOpen   bool
+}
+
 type Snapshot struct {
 	ID         int
 	PID        int
@@ -33,24 +38,37 @@ type Snapshot struct {
 	ReqTs      int
 	NbrResps   int
 
-	InterceptedMsgs []pp2plink.IndMsg
+	// Communication chans between this process and the process with the PID in the key
+	// Used for storing messages in transit when this snapshot was taken
+	CommunicationChans map[int]*CommunicationChan
 
 	CollectedResps int `json:"-"`
 }
 
 // NewSnapshot creates a new Snapshot instance with default parameters.
 func NewSnapshot(state SnapshotState) *Snapshot {
-	return &Snapshot{
-		ID:              state.ID,
-		PID:             state.PID,
-		State:           state.State,
-		Waiting:         state.Waiting,
-		LocalClock:      state.LocalClock,
-		ReqTs:           state.ReqTs,
-		NbrResps:        state.NbrResps,
-		InterceptedMsgs: make([]pp2plink.IndMsg, 0),
-		CollectedResps:  0,
+	s := &Snapshot{
+		ID:                 state.ID,
+		PID:                state.PID,
+		State:              state.State,
+		Waiting:            state.Waiting,
+		LocalClock:         state.LocalClock,
+		ReqTs:              state.ReqTs,
+		NbrResps:           state.NbrResps,
+		CommunicationChans: make(map[int]*CommunicationChan),
+		CollectedResps:     0,
 	}
+
+	nProcesses := len(state.Waiting)
+	for i := 0; i < nProcesses; i++ {
+		s.CommunicationChans[i] = &CommunicationChan{
+			Messages: make([]pp2plink.IndMsg, 0),
+			IsOpen:   true,
+		}
+	}
+	s.CommunicationChans[s.PID].IsOpen = false // the channel to myself is always closed
+
+	return s
 }
 
 func (s *Snapshot) DumpToFile() error {
@@ -76,4 +94,13 @@ func (s *Snapshot) DumpToFile() error {
 	}
 
 	return nil
+}
+
+func (s *Snapshot) HasMessagesInTransit() bool {
+	for _, commChan := range s.CommunicationChans {
+		if len(commChan.Messages) > 0 {
+			return true
+		}
+	}
+	return false
 }

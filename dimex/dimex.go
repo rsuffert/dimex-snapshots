@@ -326,6 +326,7 @@ func (m *Dimex) handleIncomingSnap(msg pp2plink.IndMsg) {
 			senderId,
 			m.lastSnapshot.CollectedResps,
 		)
+		m.lastSnapshot.CommunicationChans[senderId].IsOpen = false
 	}
 
 	snapshotOver := m.lastSnapshot.CollectedResps == (len(m.addresses) - 1)
@@ -404,7 +405,10 @@ func (m *Dimex) messagesMiddleware(msg pp2plink.IndMsg) pp2plink.IndMsg {
 		return msg
 	}
 
-	m.lastSnapshot.InterceptedMsgs = append(m.lastSnapshot.InterceptedMsgs, msg)
+	commChan := m.lastSnapshot.CommunicationChans[senderId]
+	if commChan.IsOpen {
+		commChan.Messages = append(commChan.Messages, msg)
+	}
 
 	return msg
 }
