@@ -47,8 +47,6 @@ type Snapshot struct {
 	// Communication chans between this process and the process with the PID in the key
 	// Used for storing messages in transit when this snapshot was taken
 	CommunicationChans map[int]*CommunicationChan
-
-	CollectedResps int `json:"-"`
 }
 
 // NewSnapshot creates a new Snapshot instance.
@@ -64,7 +62,6 @@ func NewSnapshot(state ProcessState) *Snapshot {
 		ReqTs:              state.ReqTs,
 		NbrResps:           state.NbrResps,
 		CommunicationChans: make(map[int]*CommunicationChan, nProcesses),
-		CollectedResps:     0,
 	}
 
 	for i := 0; i < nProcesses; i++ {
@@ -112,4 +109,15 @@ func (s *Snapshot) HasMessagesInTransit() bool {
 		}
 	}
 	return false
+}
+
+// IsOver tells whether or not this snapshot is over (completed) and therefore can
+// be dumped to a file.
+func (s *Snapshot) IsOver() bool {
+	for _, commChan := range s.CommunicationChans {
+		if commChan.IsOpen {
+			return false
+		}
+	}
+	return true
 }
