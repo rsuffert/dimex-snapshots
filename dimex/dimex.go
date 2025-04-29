@@ -316,7 +316,7 @@ func (m *Dimex) handleIncomingSnap(msg pp2plink.IndMsg) {
 		m.takeSnapshot(snapId)
 	}
 
-	m.lastSnapshot.CommunicationChans[senderId].IsOpen = false
+	m.lastSnapshot.CommunicationChans[senderId].Close()
 
 	if m.lastSnapshot.IsOver() {
 		logrus.Debugf("\t\tP%d: snapshot %d completed. Dumping to file...\n", m.id, snapId)
@@ -393,10 +393,7 @@ func (m *Dimex) messagesMiddleware(msg pp2plink.IndMsg) pp2plink.IndMsg {
 		return msg
 	}
 
-	commChan := m.lastSnapshot.CommunicationChans[senderId]
-	if commChan.IsOpen {
-		commChan.Messages = append(commChan.Messages, msg)
-	}
+	m.lastSnapshot.CommunicationChans[senderId].AddMessage(msg)
 
 	return msg
 }
