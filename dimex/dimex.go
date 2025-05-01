@@ -316,16 +316,9 @@ func (m *Dimex) handleIncomingSnap(msg pp2plink.IndMsg) {
 		m.takeSnapshot(snapId)
 	}
 
-	// if I sent this snapshot to myself, I'm taking the initiative of taking a snapshot of the system
-	// in such case, I don't count that external request to trigger the snapshot as a response
-	if senderId != m.id {
-		m.lastSnapshot.CollectedResps++
-		logrus.Debugf("\t\tP%d: collected new SNAP resp from PID %d (total = %d)\n", m.id, senderId, m.lastSnapshot.CollectedResps)
-		m.lastSnapshot.CommunicationChans[senderId].IsOpen = false
-	}
+	m.lastSnapshot.CommunicationChans[senderId].Close()
 
-	snapshotOver := m.lastSnapshot.CollectedResps == (len(m.addresses) - 1)
-	if snapshotOver {
+	if m.lastSnapshot.IsOver() {
 		logrus.Debugf("\t\tP%d: snapshot %d completed. Dumping to file...\n", m.id, snapId)
 		if err := m.lastSnapshot.DumpToFile(); err != nil {
 			logrus.Errorf("\t\tP%d: error dumping snapshot %d to file: %v\n", m.id, snapId, err)
@@ -400,10 +393,7 @@ func (m *Dimex) messagesMiddleware(msg pp2plink.IndMsg) pp2plink.IndMsg {
 		return msg
 	}
 
-	commChan := m.lastSnapshot.CommunicationChans[senderId]
-	if commChan.IsOpen {
-		commChan.Messages = append(commChan.Messages, msg)
-	}
+	m.lastSnapshot.CommunicationChans[senderId].AddMessage(msg)
 
 	return msg
 }

@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-type Parser struct {
+type parser struct {
 	files             []*os.File
 	scanners          []*bufio.Scanner
 	invariantCheckers []invariantCheckerFunc
@@ -17,9 +17,9 @@ type Parser struct {
 // taken by the processes during the execution of the mutual exclusion algorithm. The user is
 // responsible for calling Init() before performing any operations on the Parser instance, and
 // Close() after all operations are completed to ensure proper resource management.
-func NewParser() *Parser {
+func NewParser() *parser {
 	nProcesses := len(dumpFiles)
-	p := &Parser{
+	p := &parser{
 		files:    make([]*os.File, nProcesses),
 		scanners: make([]*bufio.Scanner, nProcesses),
 		invariantCheckers: []invariantCheckerFunc{
@@ -36,7 +36,7 @@ func NewParser() *Parser {
 }
 
 // Init initializes the Parser instance.
-func (p *Parser) Init() error {
+func (p *parser) Init() error {
 	dumpFilesMu.RLock()
 	defer dumpFilesMu.RUnlock()
 
@@ -52,7 +52,7 @@ func (p *Parser) Init() error {
 }
 
 // Close terminates the Parser instance and releases any resources it holds.
-func (p *Parser) Close() error {
+func (p *parser) Close() error {
 	for _, file := range p.files {
 		if err := file.Close(); err != nil {
 			return fmt.Errorf("parser.Close: failed to close file: %w", err)
@@ -70,7 +70,7 @@ func (p *Parser) Close() error {
 // context, including the snapshot ID where the issue occurred.
 //
 // Returns nil if all snapshots are successfully verified without errors.
-func (p *Parser) ParseVerify() error {
+func (p *parser) ParseVerify() error {
 	snapId := 0
 
 	for {
@@ -104,7 +104,7 @@ func (p *Parser) ParseVerify() error {
 //   - A pointer to a slice of Snapshot structs if all scanners successfully provide a snapshot.
 //   - An error if any scanner encounters an issue (e.g., read error, unmarshaling error, or mismatched snapshot counts).
 //   - A nil pointer and no error if all scanners have reached EOF and there are no more snapshots to read.
-func (p *Parser) getNextSnapshotsSet() (*[]Snapshot, error) {
+func (p *parser) getNextSnapshotsSet() (*[]Snapshot, error) {
 	nProcesses := len(p.scanners)
 	snapshots := make([]Snapshot, nProcesses)
 	eofCount := 0

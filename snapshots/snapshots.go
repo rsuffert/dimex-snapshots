@@ -26,12 +26,37 @@ type ProcessState struct {
 	NbrResps   int
 }
 
-// CommunicationChan is a struct that represents the abstraction of a communication
+// communicationChan is a struct that represents the abstraction of a communication
 // channel between two processes. It contains a slice of all messages sent through it
 // and a boolean indicating whether the channel is open or closed for sending new messages.
-type CommunicationChan struct {
+type communicationChan struct {
 	Messages []pp2plink.IndMsg
 	IsOpen   bool
+}
+
+// AddMessage records the message as received through this communication channel, as
+// long as it's open. If not, the message is discarded and not recorded.
+func (c *communicationChan) AddMessage(msg pp2plink.IndMsg) {
+	if !c.IsOpen {
+		return
+	}
+	c.Messages = append(c.Messages, msg)
+}
+
+// Close closes the communication channel, indicating that no more messages can be stored
+// as received through it.
+func (c *communicationChan) Close() {
+	c.IsOpen = false
+}
+
+// MarshalJSON customizes the JSON representation of the CommunicationChan struct.
+func (c *communicationChan) MarshalJSON() ([]byte, error) {
+	type alias communicationChan
+	return json.Marshal(&struct {
+		*alias
+	}{
+		alias: (*alias)(c),
+	})
 }
 
 // Snapshot is a struct that represents a snapshot of a process in the system.
@@ -46,9 +71,7 @@ type Snapshot struct {
 
 	// Communication chans between this process and the process with the PID in the key
 	// Used for storing messages in transit when this snapshot was taken
-	CommunicationChans map[int]*CommunicationChan
-
-	CollectedResps int `json:"-"`
+	CommunicationChans map[int]*communicationChan
 }
 
 // NewSnapshot creates a new Snapshot instance.
@@ -63,17 +86,16 @@ func NewSnapshot(state ProcessState) *Snapshot {
 		LocalClock:         state.LocalClock,
 		ReqTs:              state.ReqTs,
 		NbrResps:           state.NbrResps,
-		CommunicationChans: make(map[int]*CommunicationChan, nProcesses),
-		CollectedResps:     0,
+		CommunicationChans: make(map[int]*communicationChan, nProcesses),
 	}
 
 	for i := 0; i < nProcesses; i++ {
-		s.CommunicationChans[i] = &CommunicationChan{
+		s.CommunicationChans[i] = &communicationChan{
 			Messages: make([]pp2plink.IndMsg, 0),
 			IsOpen:   true,
 		}
 	}
-	s.CommunicationChans[s.PID].IsOpen = false // the channel to myself is always closed
+	s.CommunicationChans[s.PID].Close() // the channel to myself is always closed
 
 	return s
 }
@@ -112,4 +134,15 @@ func (s *Snapshot) HasMessagesInTransit() bool {
 		}
 	}
 	return false
+}
+
+// IsOver tells whether or not this snapshot is over (completed) and therefore can
+// be dumped to a file.
+func (s *Snapshot) IsOver() bool {
+	for _, commChan := range s.CommunicationChans {
+		if commChan.IsOpen {
+			return false
+		}
+	}
+	return true
 }
