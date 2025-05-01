@@ -26,17 +26,17 @@ type ProcessState struct {
 	NbrResps   int
 }
 
-// CommunicationChan is a struct that represents the abstraction of a communication
+// communicationChan is a struct that represents the abstraction of a communication
 // channel between two processes. It contains a slice of all messages sent through it
 // and a boolean indicating whether the channel is open or closed for sending new messages.
-type CommunicationChan struct {
+type communicationChan struct {
 	messages []pp2plink.IndMsg
 	isOpen   bool
 }
 
 // AddMessage records the message as received through this communication channel, as
 // long as it's open. If not, the message is discarded and not recorded.
-func (c *CommunicationChan) AddMessage(msg pp2plink.IndMsg) {
+func (c *communicationChan) AddMessage(msg pp2plink.IndMsg) {
 	if !c.isOpen {
 		return
 	}
@@ -45,12 +45,12 @@ func (c *CommunicationChan) AddMessage(msg pp2plink.IndMsg) {
 
 // Close closes the communication channel, indicating that no more messages can be stored
 // as received through it.
-func (c *CommunicationChan) Close() {
+func (c *communicationChan) Close() {
 	c.isOpen = false
 }
 
 // MarshalJSON customizes the JSON representation of the CommunicationChan struct.
-func (c *CommunicationChan) MarshalJSON() ([]byte, error) {
+func (c *communicationChan) MarshalJSON() ([]byte, error) {
 	type Alias struct {
 		Messages []pp2plink.IndMsg `json:"Messages"`
 		IsOpen   bool              `json:"IsOpen"`
@@ -73,7 +73,7 @@ type Snapshot struct {
 
 	// Communication chans between this process and the process with the PID in the key
 	// Used for storing messages in transit when this snapshot was taken
-	CommunicationChans map[int]*CommunicationChan
+	CommunicationChans map[int]*communicationChan
 }
 
 // NewSnapshot creates a new Snapshot instance.
@@ -88,11 +88,11 @@ func NewSnapshot(state ProcessState) *Snapshot {
 		LocalClock:         state.LocalClock,
 		ReqTs:              state.ReqTs,
 		NbrResps:           state.NbrResps,
-		CommunicationChans: make(map[int]*CommunicationChan, nProcesses),
+		CommunicationChans: make(map[int]*communicationChan, nProcesses),
 	}
 
 	for i := 0; i < nProcesses; i++ {
-		s.CommunicationChans[i] = &CommunicationChan{
+		s.CommunicationChans[i] = &communicationChan{
 			messages: make([]pp2plink.IndMsg, 0),
 			isOpen:   true,
 		}
