@@ -30,34 +30,32 @@ type ProcessState struct {
 // channel between two processes. It contains a slice of all messages sent through it
 // and a boolean indicating whether the channel is open or closed for sending new messages.
 type communicationChan struct {
-	messages []pp2plink.IndMsg
-	isOpen   bool
+	Messages []pp2plink.IndMsg
+	IsOpen   bool
 }
 
 // AddMessage records the message as received through this communication channel, as
 // long as it's open. If not, the message is discarded and not recorded.
 func (c *communicationChan) AddMessage(msg pp2plink.IndMsg) {
-	if !c.isOpen {
+	if !c.IsOpen {
 		return
 	}
-	c.messages = append(c.messages, msg)
+	c.Messages = append(c.Messages, msg)
 }
 
 // Close closes the communication channel, indicating that no more messages can be stored
 // as received through it.
 func (c *communicationChan) Close() {
-	c.isOpen = false
+	c.IsOpen = false
 }
 
 // MarshalJSON customizes the JSON representation of the CommunicationChan struct.
 func (c *communicationChan) MarshalJSON() ([]byte, error) {
-	type Alias struct {
-		Messages []pp2plink.IndMsg `json:"Messages"`
-		IsOpen   bool              `json:"IsOpen"`
-	}
-	return json.Marshal(&Alias{
-		Messages: c.messages,
-		IsOpen:   c.isOpen,
+	type alias communicationChan
+	return json.Marshal(&struct {
+		*alias
+	}{
+		alias: (*alias)(c),
 	})
 }
 
@@ -93,8 +91,8 @@ func NewSnapshot(state ProcessState) *Snapshot {
 
 	for i := 0; i < nProcesses; i++ {
 		s.CommunicationChans[i] = &communicationChan{
-			messages: make([]pp2plink.IndMsg, 0),
-			isOpen:   true,
+			Messages: make([]pp2plink.IndMsg, 0),
+			IsOpen:   true,
 		}
 	}
 	s.CommunicationChans[s.PID].Close() // the channel to myself is always closed
@@ -131,7 +129,7 @@ func (s *Snapshot) DumpToFile() error {
 // HasMessagesInTransit checks if there are any messages in transit in the snapshot.
 func (s *Snapshot) HasMessagesInTransit() bool {
 	for _, commChan := range s.CommunicationChans {
-		if len(commChan.messages) > 0 {
+		if len(commChan.Messages) > 0 {
 			return true
 		}
 	}
@@ -142,7 +140,7 @@ func (s *Snapshot) HasMessagesInTransit() bool {
 // be dumped to a file.
 func (s *Snapshot) IsOver() bool {
 	for _, commChan := range s.CommunicationChans {
-		if commChan.isOpen {
+		if commChan.IsOpen {
 			return false
 		}
 	}
